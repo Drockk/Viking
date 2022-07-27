@@ -1,3 +1,5 @@
+include "Dependencies.lua"
+
 workspace "Viking"
     architecture "x86_64"
     startproject "Viking"
@@ -14,5 +16,6 @@ workspace "Viking"
     }
 
     outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
+
 
     include "Viking"

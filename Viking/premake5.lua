@@ -15,7 +15,8 @@ project "Viking"
 
     includedirs
     {
-        "Source"
+        "Source",
+        "%{IncludeDir.stb}"
     }
 
     defines
