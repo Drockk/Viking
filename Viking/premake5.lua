@@ -16,7 +16,8 @@ project "Viking"
     includedirs
     {
         "Source",
-        "%{IncludeDir.stb}"
+        "%{IncludeDir.stb}",
+        "%{IncludeDir.tinyObjLoader}"
     }
 
     defines
