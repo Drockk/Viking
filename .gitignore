@@ -1,5 +1,7 @@
 *.log
 *.sln
 .vs/
-*.vcxproj
+*.vcxproj*
 *.exe
+bin/
+bin-int/

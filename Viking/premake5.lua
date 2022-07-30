@@ -15,6 +15,7 @@ project "Viking"
         "%{IncludeDir.glm}/glm/**.inl",
         "%{IncludeDir.stb}/**.h",
         "%{IncludeDir.stb}/**.cpp",
+        "%{IncludeDir.tinyObjLoader}/**.h"
     }
 
     includedirs
@@ -24,6 +25,7 @@ project "Viking"
         "%{IncludeDir.glm}",
         "%{IncludeDir.stb}",
         "%{IncludeDir.tinyObjLoader}",
+        "%{IncludeDir.VulkanSDK}"
     }
 
     defines
