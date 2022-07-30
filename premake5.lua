@@ -17,5 +17,8 @@ workspace "Viking"
 
     outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
+    group "Dependencies"
+        include "Viking/Vendor/glfw"
+    group ""
 
     include "Viking"

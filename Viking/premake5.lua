@@ -10,19 +10,30 @@ project "Viking"
     files
     {
         "Source/**.hpp",
-        "Source/**.cpp"
+        "Source/**.cpp",
+        "%{IncludeDir.glm}/glm/**.hpp",
+        "%{IncludeDir.glm}/glm/**.inl",
+        "%{IncludeDir.stb}/**.h",
+        "%{IncludeDir.stb}/**.cpp",
     }
 
     includedirs
     {
         "Source",
+        "%{IncludeDir.glfw}",
+        "%{IncludeDir.glm}",
         "%{IncludeDir.stb}",
-        "%{IncludeDir.tinyObjLoader}"
+        "%{IncludeDir.tinyObjLoader}",
     }
 
     defines
     {
-        "GLFW_INCLUDE_NONE"
+        "GLFW_INCLUDE_VULKAN"
+    }
+
+    links
+    {
+        "GLFW"
     }
 
     filter "system:windows"

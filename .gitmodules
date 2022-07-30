@@ -1,0 +1,6 @@
+[submodule "Viking/Vendor/glm"]
+	path = Viking/Vendor/glm
+	url = https://github.com/g-truc/glm.git
+[submodule "Viking/Vendor/glfw"]
+	path = Viking/Vendor/glfw
+	url = https://github.com/Drockk/glfw.git
