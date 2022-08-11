@@ -35,7 +35,8 @@ project "Viking"
 
     links
     {
-        "GLFW"
+        "GLFW",
+        "%{Library.Vulkan}",
     }
 
     filter "system:windows"
