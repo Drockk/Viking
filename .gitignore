@@ -6,6 +6,6 @@ bin-int/
 # Files
 *.exe
 *.log
-*.sln
+*.sln*
 *.spv
 *.vcxproj*
