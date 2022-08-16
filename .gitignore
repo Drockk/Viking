@@ -1,7 +1,11 @@
-*.log
-*.sln
+# Directories
 .vs/
-*.vcxproj*
-*.exe
 bin/
 bin-int/
+
+# Files
+*.exe
+*.log
+*.sln
+*.spv
+*.vcxproj*
