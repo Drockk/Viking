@@ -1,0 +1,2 @@
+# Viking
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/412f39de7f674591a193a58a50e790cf)](https://app.codacy.com/gh/Drockk/Viking?utm_source=github.com&utm_medium=referral&utm_content=Drockk/Viking&utm_campaign=Badge_Grade_Settings)
