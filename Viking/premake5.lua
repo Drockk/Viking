@@ -21,6 +21,7 @@ project "Viking"
     includedirs
     {
         "Source",
+        "Vendor/spdlog/include",
         "%{IncludeDir.glfw}",
         "%{IncludeDir.glm}",
         "%{IncludeDir.stb}",

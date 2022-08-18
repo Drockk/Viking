@@ -4,3 +4,6 @@
 [submodule "Viking/Vendor/glfw"]
 	path = Viking/Vendor/glfw
 	url = https://github.com/Drockk/glfw.git
+[submodule "Viking/Vendor/spdlog"]
+	path = Viking/Vendor/spdlog
+	url = https://github.com/gabime/spdlog.git

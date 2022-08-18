@@ -1,3 +1,5 @@
+#include "Viking.hpp"
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -134,12 +136,18 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 proj;
 };
 
-class HelloTriangleApplication {
+class HelloTriangleApplication: public Viking::Application {
 public:
-    void run() {
+    void init() override {
         initWindow();
         initVulkan();
+    }
+
+    void run() override {
         mainLoop();
+    }
+
+    void shutdown() override {
         cleanup();
     }
 
@@ -1761,10 +1769,11 @@ private:
 };
 
 int main() {
-
     try {
         HelloTriangleApplication app;
+        app.init();
         app.run();
+        app.shutdown();
     }
     catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
