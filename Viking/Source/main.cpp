@@ -16,7 +16,6 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
-#include <iostream>
 #include <fstream>
 #include <stdexcept>
 #include <algorithm>
@@ -57,9 +56,8 @@ VkResult createDebugUtilsMessengerExt(VkInstance instance, const VkDebugUtilsMes
     if (const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT")); func != nullptr) {
         return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
     }
-    else {
-        return VK_ERROR_EXTENSION_NOT_PRESENT;
-    }
+
+    return VK_ERROR_EXTENSION_NOT_PRESENT;
 }
 
 void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
@@ -220,12 +218,12 @@ private:
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-        m_Window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+        m_Window = glfwCreateWindow(WIDTH, HEIGHT, "Viking App", nullptr, nullptr);
         glfwSetWindowUserPointer(m_Window, this);
         glfwSetFramebufferSizeCallback(m_Window, framebufferResizeCallback);
     }
 
-    static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+    static void framebufferResizeCallback(GLFWwindow* window, [[maybe_unused]] int width, [[maybe_unused]] int height) {
         const auto app = static_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
         app->m_FramebufferResized = true;
     }
@@ -294,7 +292,7 @@ private:
         vkDestroyPipelineLayout(m_Device, m_PipelineLayout, nullptr);
         vkDestroyRenderPass(m_Device, m_RenderPass, nullptr);
 
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vkDestroyBuffer(m_Device, m_UniformBuffers[i], nullptr);
             vkFreeMemory(m_Device, m_UniformBuffersMemory[i], nullptr);
         }
@@ -315,7 +313,7 @@ private:
         vkDestroyBuffer(m_Device, m_VertexBuffer, nullptr);
         vkFreeMemory(m_Device, m_VertexBufferMemory, nullptr);
 
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vkDestroySemaphore(m_Device, m_RenderFinishedSemaphores[i], nullptr);
             vkDestroySemaphore(m_Device, m_ImageAvailableSemaphores[i], nullptr);
             vkDestroyFence(m_Device, m_InFlightFences[i], nullptr);
@@ -325,7 +323,7 @@ private:
 
         vkDestroyDevice(m_Device, nullptr);
 
-        if (ENABLE_VALIDATION_LAYERS) {
+        if constexpr (ENABLE_VALIDATION_LAYERS) {
             DestroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
         }
 
@@ -338,7 +336,7 @@ private:
     }
 
     void recreateSwapChain() {
-        int width = 0, height = 0;
+        auto width = 0, height = 0;
         glfwGetFramebufferSize(m_Window, &width, &height);
         while (width == 0 || height == 0) {
             glfwGetFramebufferSize(m_Window, &width, &height);
@@ -447,12 +445,12 @@ private:
     }
 
     void createLogicalDevice() {
-        QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+        auto indices = findQueueFamilies(physicalDevice);
 
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
         std::set uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
-        float queuePriority = 1.0f;
+        auto queuePriority{ 1.0f };
         for (uint32_t queueFamily : uniqueQueueFamilies) {
             VkDeviceQueueCreateInfo queueCreateInfo{};
             queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -493,13 +491,13 @@ private:
     }
 
     void createSwapChain() {
-        const SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
+        const auto swapChainSupport = querySwapChainSupport(physicalDevice);
 
-        const VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
-        const VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-        const VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+        const auto surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
+        const auto presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
+        const auto extent = chooseSwapExtent(swapChainSupport.capabilities);
 
-        uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+        auto imageCount = swapChainSupport.capabilities.minImageCount + 1;
         if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
             imageCount = swapChainSupport.capabilities.maxImageCount;
         }
@@ -515,7 +513,7 @@ private:
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-        const QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+        const auto indices = findQueueFamilies(physicalDevice);
         const uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
         if (indices.graphicsFamily != indices.presentFamily) {
@@ -655,8 +653,8 @@ private:
         auto vertShaderCode = readFile("Shaders/vert.spv");
         auto fragShaderCode = readFile("Shaders/frag.spv");
 
-        VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-        VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+        auto vertShaderModule = createShaderModule(vertShaderCode);
+        auto fragShaderModule = createShaderModule(fragShaderCode);
 
         VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
         vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -731,7 +729,7 @@ private:
         colorBlending.blendConstants[2] = 0.0f;
         colorBlending.blendConstants[3] = 0.0f;
 
-        std::vector<VkDynamicState> dynamicStates = {
+        std::vector dynamicStates = {
             VK_DYNAMIC_STATE_VIEWPORT,
             VK_DYNAMIC_STATE_SCISSOR
         };
@@ -777,7 +775,7 @@ private:
     void createFramebuffers() {
         m_SwapChainFramebuffers.resize(m_SwapChainImageViews.size());
 
-        for (size_t i = 0; i < m_SwapChainImageViews.size(); i++) {
+        for (auto i = 0; i < m_SwapChainImageViews.size(); i++) {
             std::array<VkImageView, 3> attachments = {
                 m_ColorImageView,
                 m_DepthImageView,
@@ -800,7 +798,7 @@ private:
     }
 
     void createCommandPool() {
-        const QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
+        const auto queueFamilyIndices = findQueueFamilies(physicalDevice);
 
         VkCommandPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -813,21 +811,21 @@ private:
     }
 
     void createColorResources() {
-        const VkFormat colorFormat = m_SwapChainImageFormat;
+        const auto colorFormat = m_SwapChainImageFormat;
 
         createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_ColorImage, m_ColorImageMemory);
         m_ColorImageView = createImageView(m_ColorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
     }
 
     void createDepthResources() {
-        const VkFormat depthFormat = findDepthFormat();
+        const auto depthFormat = findDepthFormat();
 
         createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
         m_DepthImageView = createImageView(m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
     }
 
     [[nodiscard]] VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const {
-        for (const VkFormat format : candidates) {
+        for (const auto format : candidates) {
             VkFormatProperties props;
             vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
 
@@ -857,7 +855,7 @@ private:
 
     void createTextureImage() {
         int texWidth, texHeight, texChannels;
-        stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        auto* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         const auto imageSize = texWidth * texHeight * 4;
         m_MipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
@@ -897,7 +895,7 @@ private:
             throw std::runtime_error("texture image format does not support linear blitting!");
         }
 
-        const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+        const auto commandBuffer = beginSingleTimeCommands();
 
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -909,8 +907,8 @@ private:
         barrier.subresourceRange.layerCount = 1;
         barrier.subresourceRange.levelCount = 1;
 
-        int32_t mipWidth = texWidth;
-        int32_t mipHeight = texHeight;
+        auto mipWidth = texWidth;
+        auto mipHeight = texHeight;
 
         for (uint32_t i = 1; i < mipLevels; i++) {
             barrier.subresourceRange.baseMipLevel = i - 1;
@@ -979,7 +977,7 @@ private:
         VkPhysicalDeviceProperties physicalDeviceProperties;
         vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
 
-        const VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+        const auto counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
         if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
         if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
         if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
@@ -1077,7 +1075,7 @@ private:
     }
 
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels) const {
-        const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+        const auto commandBuffer = beginSingleTimeCommands();
 
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1126,7 +1124,7 @@ private:
     }
 
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const {
-        const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+        const auto commandBuffer = beginSingleTimeCommands();
 
         VkBufferImageCopy region;
         region.bufferOffset = 0;
@@ -1189,7 +1187,7 @@ private:
     }
 
     void createVertexBuffer() {
-        const VkDeviceSize bufferSize = sizeof(m_Vertices[0]) * m_Vertices.size();
+        const auto bufferSize = sizeof(m_Vertices[0]) * m_Vertices.size();
 
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
@@ -1209,7 +1207,7 @@ private:
     }
 
     void createIndexBuffer() {
-        const VkDeviceSize bufferSize = sizeof m_Indices[0] * m_Indices.size();
+        const auto bufferSize = sizeof m_Indices[0] * m_Indices.size();
 
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
@@ -1363,7 +1361,7 @@ private:
     }
 
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const {
-        const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+        const auto commandBuffer = beginSingleTimeCommands();
 
         VkBufferCopy copyRegion{};
         copyRegion.size = size;
@@ -1481,9 +1479,9 @@ private:
         static auto startTime = std::chrono::high_resolution_clock::now();
 
         const auto currentTime = std::chrono::high_resolution_clock::now();
-        const float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+        const auto time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-        UniformBufferObject ubo{};
+        UniformBufferObject ubo;
         ubo.model = rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(m_SwapChainExtent.width) / static_cast<float>(m_SwapChainExtent.height), 0.1f, 10.0f);
@@ -1499,7 +1497,7 @@ private:
         vkWaitForFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
         uint32_t imageIndex;
-        VkResult result = vkAcquireNextImageKHR(m_Device, m_SwapChain, UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
+        auto result = vkAcquireNextImageKHR(m_Device, m_SwapChain, UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
             recreateSwapChain();
@@ -1600,20 +1598,19 @@ private:
         if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
             return capabilities.currentExtent;
         }
-        else {
-            int width, height;
-            glfwGetFramebufferSize(m_Window, &width, &height);
 
-            VkExtent2D actualExtent = {
-                static_cast<uint32_t>(width),
-                static_cast<uint32_t>(height)
-            };
+        int width, height;
+        glfwGetFramebufferSize(m_Window, &width, &height);
 
-            actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-            actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+        VkExtent2D actualExtent = {
+            static_cast<uint32_t>(width),
+            static_cast<uint32_t>(height)
+        };
 
-            return actualExtent;
-        }
+        actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+        actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+
+        return actualExtent;
     }
 
     SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) const {
@@ -1641,13 +1638,13 @@ private:
     }
 
     bool isDeviceSuitable(VkPhysicalDevice device) const {
-        QueueFamilyIndices indices = findQueueFamilies(device);
+        auto indices = findQueueFamilies(device);
 
-        bool extensionsSupported = checkDeviceExtensionSupport(device);
+        auto extensionsSupported = checkDeviceExtensionSupport(device);
 
         auto swapChainAdequate = false;
         if (extensionsSupported) {
-            SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
+            auto swapChainSupport = querySwapChainSupport(device);
             swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
         }
 
@@ -1750,11 +1747,11 @@ private:
             throw std::runtime_error("failed to open file!");
         }
 
-        const size_t fileSize = file.tellg();
+        const auto fileSize = file.tellg();
         std::vector<char> buffer(fileSize);
 
         file.seekg(0);
-        file.read(buffer.data(), static_cast<std::streamsize>(fileSize));
+        file.read(buffer.data(), fileSize);
 
         file.close();
 
@@ -1762,13 +1759,15 @@ private:
     }
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback([[maybe_unused]] VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, [[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, [[maybe_unused]] void* pUserData) {
-        std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+        VI_CORE_DEBUG("validation layer: {0}", pCallbackData->pMessage);
 
         return VK_FALSE;
     }
 };
 
 int main() {
+    Viking::Log::init();
+
     try {
         HelloTriangleApplication app;
         app.init();
@@ -1776,7 +1775,7 @@ int main() {
         app.shutdown();
     }
     catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
+        VI_CORE_CRITICAL("{0}", e.what());
         return EXIT_FAILURE;
     }
 

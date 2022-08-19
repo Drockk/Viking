@@ -46,6 +46,7 @@ OStream& operator<<(OStream& os, glm::qua<T, Q> quaternion)
 
 // Core log macros
 #define VI_CORE_TRACE(...)    ::Viking::Log::getCoreLogger()->trace(__VA_ARGS__)
+#define VI_CORE_DEBUG(...)    ::Viking::Log::getCoreLogger()->debug(__VA_ARGS__)
 #define VI_CORE_INFO(...)     ::Viking::Log::getCoreLogger()->info(__VA_ARGS__)
 #define VI_CORE_WARN(...)     ::Viking::Log::getCoreLogger()->warn(__VA_ARGS__)
 #define VI_CORE_ERROR(...)    ::Viking::Log::getCoreLogger()->error(__VA_ARGS__)
@@ -53,6 +54,7 @@ OStream& operator<<(OStream& os, glm::qua<T, Q> quaternion)
 
 // Client log macros
 #define VI_TRACE(...)         ::Viking::Log::getClientLogger()->trace(__VA_ARGS__)
+#define VI_DEBUG(...)         ::Viking::Log::getClientLogger()->debug(__VA_ARGS__)
 #define VI_INFO(...)          ::Viking::Log::getClientLogger()->info(__VA_ARGS__)
 #define VI_WARN(...)          ::Viking::Log::getClientLogger()->warn(__VA_ARGS__)
 #define VI_ERROR(...)         ::Viking::Log::getClientLogger()->error(__VA_ARGS__)
