@@ -1,4 +1,5 @@
 #include "Viking.hpp"
+#include "Viking/Core/Entrypoint.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -22,7 +23,6 @@
 #include <chrono>
 #include <vector>
 #include <cstring>
-#include <cstdlib>
 #include <cstdint>
 #include <limits>
 #include <array>
@@ -1512,7 +1512,7 @@ private:
 
         vkResetFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame]);
 
-        vkResetCommandBuffer(m_CommandBuffers[m_CurrentFrame], /*VkCommandBufferResetFlagBits*/ 0);
+        vkResetCommandBuffer(m_CommandBuffers[m_CurrentFrame], 0);
         recordCommandBuffer(m_CommandBuffers[m_CurrentFrame], imageIndex);
 
         VkSubmitInfo submitInfo{};
@@ -1765,19 +1765,6 @@ private:
     }
 };
 
-int main() {
-    Viking::Log::init();
-
-    try {
-        HelloTriangleApplication app;
-        app.init();
-        app.run();
-        app.shutdown();
-    }
-    catch (const std::exception& e) {
-        VI_CORE_CRITICAL("{0}", e.what());
-        return EXIT_FAILURE;
-    }
-
-    return EXIT_SUCCESS;
+std::unique_ptr<Viking::Application> createApplication() {
+    return std::make_unique<HelloTriangleApplication>();
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include <memory>
 
 namespace Viking {
 	class Application {
@@ -10,4 +11,6 @@ namespace Viking {
 		virtual void run() = 0;
 		virtual void shutdown() = 0;
 	};
+
+	std::unique_ptr<Application> createApplication();
 }
