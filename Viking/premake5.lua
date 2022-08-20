@@ -7,6 +7,9 @@ project "Viking"
     targetdir ("%{wks.location}/bin/" .. outputdir .. "/%{prj.name}")
     objdir ("%{wks.location}/bin-int/" .. outputdir .. "/%{prj.name}")
 
+    pchheader "vipch.hpp"
+    pchsource "Source/vipch.cpp"
+
     files
     {
         "Source/**.hpp",
@@ -42,6 +45,11 @@ project "Viking"
 
     filter "system:windows"
         systemversion "latest"
+
+        defines
+        {
+            "VI_PLATFORM_WINDOWS"
+        }
 
     filter "configurations:Debug"
         defines { "VI_DEBUG" }
