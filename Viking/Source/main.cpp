@@ -1,3 +1,5 @@
+#include "vipch.hpp"
+
 #include "Viking.hpp"
 #include "Viking/Core/Entrypoint.hpp"
 
@@ -19,16 +21,13 @@
 
 #include <fstream>
 #include <stdexcept>
-#include <algorithm>
 #include <chrono>
 #include <vector>
 #include <cstring>
 #include <cstdint>
 #include <limits>
-#include <array>
 #include <optional>
 #include <set>
-#include <unordered_map>
 
 constexpr uint32_t WIDTH{ 800 };
 constexpr uint32_t HEIGHT{ 600 };
