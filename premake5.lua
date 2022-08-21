@@ -21,4 +21,5 @@ workspace "Viking"
         include "Viking/Vendor/glfw"
     group ""
 
+    include "Sandbox"
     include "Viking"
