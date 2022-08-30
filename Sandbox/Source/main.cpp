@@ -136,11 +136,9 @@ struct UniformBufferObject {
 class HelloTriangleApplication: public Viking::Application {
 public:
     HelloTriangleApplication(Viking::ApplicationCommandLineArgs args): Application("Sandbox", args) {
-        
     }
 
     ~HelloTriangleApplication() override {
-        
     }
 
     void init() override {
@@ -1234,7 +1232,6 @@ private:
     }
 
     void createUniformBuffers() {
-
         m_UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
         m_UniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
 
