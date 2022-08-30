@@ -11,7 +11,7 @@ namespace Viking {
         }
         EVENT_CLASS_CATEGORY(EventCategoryKeyboard | EventCategoryInput)
     protected:
-        KeyEvent(const KeyCode keycode) : m_KeyCode(keycode) {
+        explicit KeyEvent(const KeyCode keycode) : m_KeyCode(keycode) {
         }
 
         KeyCode m_KeyCode;
@@ -19,7 +19,7 @@ namespace Viking {
 
     class KeyPressedEvent : public KeyEvent {
     public:
-        KeyPressedEvent(const KeyCode keycode, const uint16_t repeatCount) : KeyEvent(keycode), m_RepeatCount(repeatCount) {
+        explicit KeyPressedEvent(const KeyCode keycode, const uint16_t repeatCount) : KeyEvent(keycode), m_RepeatCount(repeatCount) {
         }
 
         [[nodiscard]] uint16_t getRepeatCount() const {
@@ -39,7 +39,7 @@ namespace Viking {
 
     class KeyReleasedEvent : public KeyEvent {
     public:
-        KeyReleasedEvent(const KeyCode keycode) : KeyEvent(keycode) {
+        explicit KeyReleasedEvent(const KeyCode keycode) : KeyEvent(keycode) {
         }
 
         [[nodiscard]] std::string toString() const override {
@@ -52,7 +52,7 @@ namespace Viking {
     };
 
     class KeyTypedEvent : public KeyEvent {
-        KeyTypedEvent(const KeyCode keycode) : KeyEvent(keycode) {
+        explicit KeyTypedEvent(const KeyCode keycode) : KeyEvent(keycode) {
         }
 
         [[nodiscard]] std::string toString() const override {

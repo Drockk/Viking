@@ -135,7 +135,7 @@ struct UniformBufferObject {
 
 class HelloTriangleApplication: public Viking::Application {
 public:
-    HelloTriangleApplication(Viking::ApplicationCommandLineArgs args): Application("Sandbox", args) {
+    explicit  HelloTriangleApplication(Viking::ApplicationCommandLineArgs args): Application("Sandbox", args) {
     }
 
     ~HelloTriangleApplication() override {
