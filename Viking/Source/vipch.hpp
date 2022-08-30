@@ -18,7 +18,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-//#include "Viking/Core/Base.hpp"
+#include "Viking/Core/Base.hpp"
 #include "Viking/Core/Log.hpp"
 
 #ifdef VI_PLATFORM_WINDOWS

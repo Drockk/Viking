@@ -135,12 +135,18 @@ struct UniformBufferObject {
 
 class HelloTriangleApplication: public Viking::Application {
 public:
+    explicit  HelloTriangleApplication(Viking::ApplicationCommandLineArgs args): Application("Sandbox", args) {
+    }
+
+    ~HelloTriangleApplication() override {
+    }
+
     void init() override {
         initWindow();
         initVulkan();
     }
 
-    void run() override {
+    void runTemp() override {
         mainLoop();
     }
 
@@ -256,10 +262,10 @@ private:
     }
 
     void mainLoop() {
-        while (!glfwWindowShouldClose(m_Window)) {
+        //while (!glfwWindowShouldClose(m_Window)) {
             glfwPollEvents();
             drawFrame();
-        }
+        //}
 
         vkDeviceWaitIdle(m_Device);
     }
@@ -1226,7 +1232,6 @@ private:
     }
 
     void createUniformBuffers() {
-
         m_UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
         m_UniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
 
@@ -1764,6 +1769,6 @@ private:
     }
 };
 
-std::unique_ptr<Viking::Application> createApplication() {
-    return std::make_unique<HelloTriangleApplication>();
+std::unique_ptr<Viking::Application> createApplication(Viking::ApplicationCommandLineArgs args) {
+    return std::make_unique<HelloTriangleApplication>(args);
 }

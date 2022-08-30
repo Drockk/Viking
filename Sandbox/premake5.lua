@@ -38,6 +38,11 @@ project "Sandbox"
     filter "system:windows"
         systemversion "latest"
 
+        defines
+        {
+            "VI_PLATFORM_WINDOWS"
+        }
+
     filter "configurations:Debug"
         defines "VI_DEBUG"
         runtime "Debug"

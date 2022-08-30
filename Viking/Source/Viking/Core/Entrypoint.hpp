@@ -3,13 +3,13 @@
 #include "Viking/Core/Application.hpp"
 #include "Viking/Core/Log.hpp"
 
-extern std::unique_ptr<Viking::Application> createApplication();
+extern std::unique_ptr<Viking::Application> createApplication(Viking::ApplicationCommandLineArgs args);
 
-int main() {
+int main(int argc, char** argv) {
     Viking::Log::init();
 
     try {
-        const auto app = createApplication();
+        const auto app = createApplication({argc, argv});
         app->init();
         app->run();
         app->shutdown();
