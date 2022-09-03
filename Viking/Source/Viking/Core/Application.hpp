@@ -1,8 +1,10 @@
 #pragma once
 #include "Viking/Core/Base.hpp"
-
+#include "Viking/Core/LayerStack.hpp"
 #include "Viking/Events/Event.hpp"
 #include "Viking/Events/ApplicationEvent.hpp"
+
+#include "Viking/Core/Timestep.hpp"
 
 int main(int argc, char** argv);
 
@@ -24,6 +26,9 @@ namespace Viking {
 
         void onEvent(Event& e);
 
+        void pushLayer(Layer* layer);
+        void pushOverlay(Layer* layer);
+
         void close();
 
         static Application& get() {
@@ -42,11 +47,15 @@ namespace Viking {
     private:
         void run();
         bool onWindowClose(WindowCloseEvent&);
-        bool onWindowResize(WindowResizeEvent& e);
+        bool onWindowResize(const WindowResizeEvent& e);
 
         ApplicationCommandLineArgs m_CommandLineArgs;
         bool m_Running{ true };
         bool m_Minimized{ false };
+
+        LayerStack m_LayerStack;
+
+        TimeStep m_LastFrameTime{ 0.0f };
 
         static Application* s_Instance;
         friend int ::main(int argc, char** argv);

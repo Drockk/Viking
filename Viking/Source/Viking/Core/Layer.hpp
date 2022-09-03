@@ -12,7 +12,7 @@ namespace Viking {
 
         virtual void onAttach() {}
         virtual void onDetach() {}
-        virtual void onUpdate(Timestep timeStep) {}
+        virtual void onUpdate(TimeStep timeStep) {}
         virtual void onImGuiRender() {}
         virtual void onEvent(Event& event) {}
 
