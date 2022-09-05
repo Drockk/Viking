@@ -1768,7 +1768,3 @@ private:
         return VK_FALSE;
     }
 };
-
-std::unique_ptr<Viking::Application> createApplication(Viking::ApplicationCommandLineArgs args) {
-    return std::make_unique<HelloTriangleApplication>(args);
-}
