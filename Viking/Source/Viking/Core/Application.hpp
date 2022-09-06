@@ -39,11 +39,6 @@ namespace Viking {
             return m_CommandLineArgs;
         }
 
-        //Temp
-        virtual void init() = 0;
-        virtual void runTemp() = 0;
-        virtual void shutdown() = 0;
-
     private:
         void run();
         bool onWindowClose(WindowCloseEvent&);

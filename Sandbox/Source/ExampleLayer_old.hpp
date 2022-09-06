@@ -134,36 +134,11 @@ struct UniformBufferObject {
 };
 
 class HelloTriangleApplication: public Viking::Application {
-public:
-    explicit  HelloTriangleApplication(Viking::ApplicationCommandLineArgs args): Application("Sandbox", args) {
-    }
-
-    ~HelloTriangleApplication() override {
-    }
-
-    void init() override {
-        initWindow();
-        initVulkan();
-    }
-
-    void runTemp() override {
-        mainLoop();
-    }
-
-    void shutdown() override {
-        cleanup();
-    }
-
-private:
-    GLFWwindow* m_Window{ nullptr };
-
-    VkInstance m_Instance{ nullptr };
     VkDebugUtilsMessengerEXT m_DebugMessenger{ nullptr };
     VkSurfaceKHR m_Surface{ nullptr };
 
     VkPhysicalDevice physicalDevice{ VK_NULL_HANDLE };
     VkSampleCountFlagBits msaaSamples{ VK_SAMPLE_COUNT_1_BIT };
-    VkDevice m_Device{ nullptr };
 
     VkQueue m_GraphicsQueue{ nullptr };
     VkQueue m_PresentQueue{ nullptr };
@@ -215,60 +190,6 @@ private:
     std::vector<VkSemaphore> m_RenderFinishedSemaphores;
     std::vector<VkFence> m_InFlightFences;
     uint32_t m_CurrentFrame{ 0 };
-
-    bool m_FramebufferResized{ false };
-
-    void initWindow() {
-        glfwInit();
-
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
-        m_Window = glfwCreateWindow(WIDTH, HEIGHT, "Viking App", nullptr, nullptr);
-        glfwSetWindowUserPointer(m_Window, this);
-        glfwSetFramebufferSizeCallback(m_Window, framebufferResizeCallback);
-    }
-
-    static void framebufferResizeCallback(GLFWwindow* window, [[maybe_unused]] int width, [[maybe_unused]] int height) {
-        const auto app = static_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
-        app->m_FramebufferResized = true;
-    }
-
-    void initVulkan() {
-        createInstance();
-        setupDebugMessenger();
-        createSurface();
-        pickPhysicalDevice();
-        createLogicalDevice();
-        createSwapChain();
-        createImageViews();
-        createRenderPass();
-        createDescriptorSetLayout();
-        createGraphicsPipeline();
-        createCommandPool();
-        createColorResources();
-        createDepthResources();
-        createFramebuffers();
-        createTextureImage();
-        createTextureImageView();
-        createTextureSampler();
-        loadModel();
-        createVertexBuffer();
-        createIndexBuffer();
-        createUniformBuffers();
-        createDescriptorPool();
-        createDescriptorSets();
-        createCommandBuffers();
-        createSyncObjects();
-    }
-
-    void mainLoop() {
-        //while (!glfwWindowShouldClose(m_Window)) {
-            glfwPollEvents();
-            drawFrame();
-        //}
-
-        vkDeviceWaitIdle(m_Device);
-    }
 
     void cleanupSwapChain() const {
         vkDestroyImageView(m_Device, m_DepthImageView, nullptr);
@@ -357,46 +278,6 @@ private:
         createColorResources();
         createDepthResources();
         createFramebuffers();
-    }
-
-    void createInstance() {
-        if (ENABLE_VALIDATION_LAYERS && !checkValidationLayerSupport()) {
-            throw std::runtime_error("validation layers requested, but not available!");
-        }
-
-        VkApplicationInfo appInfo{};
-        appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        appInfo.pApplicationName = "Hello Triangle";
-        appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.pEngineName = "No Engine";
-        appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.apiVersion = VK_API_VERSION_1_0;
-
-        VkInstanceCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-        createInfo.pApplicationInfo = &appInfo;
-
-        const auto extensions = getRequiredExtensions();
-        createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-        createInfo.ppEnabledExtensionNames = extensions.data();
-
-        VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-        if constexpr (ENABLE_VALIDATION_LAYERS) {
-            createInfo.enabledLayerCount = static_cast<uint32_t>(VALIDATION_LAYERS.size());
-            createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
-
-            populateDebugMessengerCreateInfo(debugCreateInfo);
-            createInfo.pNext = &debugCreateInfo;
-        }
-        else {
-            createInfo.enabledLayerCount = 0;
-
-            createInfo.pNext = nullptr;
-        }
-
-        if (vkCreateInstance(&createInfo, nullptr, &m_Instance) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create instance!");
-        }
     }
 
     static void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
@@ -1704,44 +1585,6 @@ private:
         }
 
         return indices;
-    }
-
-    static std::vector<const char*> getRequiredExtensions() {
-        uint32_t glfwExtensionCount = 0;
-        const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-        std::vector extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
-        if (ENABLE_VALIDATION_LAYERS) {
-            extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-        }
-
-        return extensions;
-    }
-
-    static bool checkValidationLayerSupport() {
-        uint32_t layerCount;
-        vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-        std::vector<VkLayerProperties> availableLayers(layerCount);
-        vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
-        for (const char* layerName : VALIDATION_LAYERS) {
-            auto layerFound{ false };
-
-            for (const auto& layerProperties : availableLayers) {
-                if (strcmp(layerName, layerProperties.layerName) == 0) {
-                    layerFound = true;
-                    break;
-                }
-            }
-
-            if (!layerFound) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     static std::vector<char> readFile(const std::string& filename) {

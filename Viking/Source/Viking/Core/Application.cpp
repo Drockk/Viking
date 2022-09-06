@@ -44,7 +44,7 @@ namespace Viking {
     void Application::run() {
         while(m_Running) {
             const auto time = static_cast<float>(glfwGetTime());
-            TimeStep timeStep = time - m_LastFrameTime;
+            const TimeStep timeStep = time - m_LastFrameTime;
             m_LastFrameTime = time;
 
             if(!m_Minimized) {
@@ -54,7 +54,6 @@ namespace Viking {
                     }
                 }
             }
-            runTemp();
         }
     }
 
