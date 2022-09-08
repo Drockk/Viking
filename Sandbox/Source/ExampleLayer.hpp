@@ -26,11 +26,18 @@ private:
 
 	//Init Vulkan Methods
 	void createInstance();
+	void setupDebugMessenger();
+	void createSurface();
+	void pickPhysicalDevice();
 
 	bool m_FramebufferResized{ false };
 
 	GLFWwindow* m_Window{ nullptr };
 
 	VkDevice m_Device{ nullptr };
+	VkDebugUtilsMessengerEXT m_DebugMessenger{ nullptr };
 	VkInstance m_Instance{ nullptr };
+	VkSampleCountFlagBits m_MsaaSamples{ VK_SAMPLE_COUNT_1_BIT };
+	VkPhysicalDevice m_PhysicalDevice;
+	VkSurfaceKHR m_Surface{ nullptr };
 };

@@ -51,14 +51,6 @@ constexpr bool ENABLE_VALIDATION_LAYERS{ false };
 constexpr bool ENABLE_VALIDATION_LAYERS{ true };
 #endif
 
-VkResult createDebugUtilsMessengerExt(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
-    if (const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT")); func != nullptr) {
-        return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-    }
-
-    return VK_ERROR_EXTENSION_NOT_PRESENT;
-}
-
 void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
     if (const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
         vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT")); func != nullptr) {
@@ -134,12 +126,6 @@ struct UniformBufferObject {
 };
 
 class HelloTriangleApplication: public Viking::Application {
-    VkDebugUtilsMessengerEXT m_DebugMessenger{ nullptr };
-    VkSurfaceKHR m_Surface{ nullptr };
-
-    VkPhysicalDevice physicalDevice{ VK_NULL_HANDLE };
-    VkSampleCountFlagBits msaaSamples{ VK_SAMPLE_COUNT_1_BIT };
-
     VkQueue m_GraphicsQueue{ nullptr };
     VkQueue m_PresentQueue{ nullptr };
 
@@ -286,24 +272,6 @@ class HelloTriangleApplication: public Viking::Application {
         createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
         createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         createInfo.pfnUserCallback = debugCallback;
-    }
-
-    void setupDebugMessenger() {
-        if constexpr (!ENABLE_VALIDATION_LAYERS)
-            return;
-
-        VkDebugUtilsMessengerCreateInfoEXT createInfo;
-        populateDebugMessengerCreateInfo(createInfo);
-
-        if (createDebugUtilsMessengerExt(m_Instance, &createInfo, nullptr, &m_DebugMessenger) != VK_SUCCESS) {
-            throw std::runtime_error("failed to set up debug messenger!");
-        }
-    }
-
-    void createSurface() {
-        if (glfwCreateWindowSurface(m_Instance, m_Window, nullptr, &m_Surface) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create window surface!");
-        }
     }
 
     void pickPhysicalDevice() {

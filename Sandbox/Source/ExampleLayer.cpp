@@ -13,16 +13,24 @@ const std::vector VALIDATION_LAYERS = {
     "VK_LAYER_KHRONOS_validation"
 };
 
+VkResult createDebugUtilsMessengerExt(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
+    if (const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT")); func != nullptr) {
+        return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+    }
+
+    return VK_ERROR_EXTENSION_NOT_PRESENT;
+}
+
 ExampleLayer::ExampleLayer(): Layer("ExampleLayer") {
 }
 
 void ExampleLayer::onAttach() {
-	initWindow();
-	initVulkan();
+    initWindow();
+    initVulkan();
 }
 
 void ExampleLayer::onDetach() {
-	//cleanup();
+    //cleanup();
 }
 
 void ExampleLayer::onUpdate(Viking::TimeStep timeStep) {
@@ -88,24 +96,24 @@ VkBool32 ExampleLayer::debugCallback([[maybe_unused]]  VkDebugUtilsMessageSeveri
 }
 
 void ExampleLayer::initWindow() {
-	glfwInit();
+    glfwInit();
 
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-	m_Window = glfwCreateWindow(WIDTH, HEIGHT, "Sandbox", nullptr, nullptr);
-	glfwSetWindowUserPointer(m_Window, this);
-	//FIXME: Later
-	//glfwSetFramebufferSizeCallback(m_Window, [](GLFWwindow* window, [[maybe_unused]] int width, [[maybe_unused]] int height) {
-	//	m_FramebufferResized 
-	//});
+    m_Window = glfwCreateWindow(WIDTH, HEIGHT, "Sandbox", nullptr, nullptr);
+    glfwSetWindowUserPointer(m_Window, this);
+    //FIXME: Later
+    //glfwSetFramebufferSizeCallback(m_Window, [](GLFWwindow* window, [[maybe_unused]] int width, [[maybe_unused]] int height) {
+    //	m_FramebufferResized 
+    //});
 
 }
 
 void ExampleLayer::initVulkan() {
     createInstance();
-    //setupDebugMessenger();
-    //createSurface();
-    //pickPhysicalDevice();
+    setupDebugMessenger();
+    createSurface();
+    pickPhysicalDevice();
     //createLogicalDevice();
     //createSwapChain();
     //createImageViews();
@@ -166,5 +174,47 @@ void ExampleLayer::createInstance() {
 
     if (vkCreateInstance(&createInfo, nullptr, &m_Instance) != VK_SUCCESS) {
         throw std::runtime_error("failed to create instance!");
+    }
+}
+
+void ExampleLayer::setupDebugMessenger() {
+    if constexpr (!ENABLE_VALIDATION_LAYERS)
+        return;
+
+    VkDebugUtilsMessengerCreateInfoEXT createInfo;
+    populateDebugMessengerCreateInfo(createInfo);
+
+    if(createDebugUtilsMessengerExt(m_Instance, &createInfo, nullptr, &m_DebugMessenger) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to set up debug messenger!");
+    }
+}
+
+void ExampleLayer::createSurface() {
+    if(glfwCreateWindowSurface(m_Instance, m_Window, nullptr, &m_Surface) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create window surface!");
+    }
+}
+
+void ExampleLayer::pickPhysicalDevice() {
+    uint32_t deviceCount{ 0 };
+    vkEnumeratePhysicalDevices(m_Instance, &deviceCount, nullptr);
+
+    if(deviceCount == 0) {
+        throw std::runtime_error("Failed to find GPUs with Vulkan support!");
+    }
+
+    std::vector<VkPhysicalDevice> devices(deviceCount);
+    vkEnumeratePhysicalDevices(m_Instance, &deviceCount, devices.data());
+
+    for(const auto& device: devices) {
+        if (isDeviceSuitable(device)) {
+            m_PhysicalDevice = device;
+            m_MsaaSamples = getMaxUsableSampleCount();
+            break;
+        }
+    }
+
+    if(m_PhysicalDevice == VK_NULL_HANDLE) {
+        throw std::runtime_error("Failed to find a suitable GPU!");
     }
 }
