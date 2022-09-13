@@ -22,7 +22,6 @@
 #include <vector>
 #include <cstring>
 #include <cstdint>
-#include <optional>
 
 const std::string MODEL_PATH = "models/viking_room.obj";
 const std::string TEXTURE_PATH = "textures/viking_room.png";
@@ -36,21 +35,6 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
     }
 }
 
-struct QueueFamilyIndices {
-    std::optional<uint32_t> graphicsFamily;
-    std::optional<uint32_t> presentFamily;
-
-    [[nodiscard]] bool isComplete() const {
-        return graphicsFamily.has_value() && presentFamily.has_value();
-    }
-};
-
-struct SwapChainSupportDetails {
-    VkSurfaceCapabilitiesKHR capabilities{};
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentModes;
-};
-
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
@@ -58,12 +42,6 @@ struct UniformBufferObject {
 };
 
 class HelloTriangleApplication: public Viking::Application {
-    VkCommandPool m_CommandPool{ nullptr };
-
-    VkImage m_ColorImage{ nullptr };
-    VkDeviceMemory m_ColorImageMemory{ nullptr };
-    VkImageView m_ColorImageView{ nullptr };
-
     VkImage m_DepthImage{ nullptr };
     VkDeviceMemory m_DepthImageMemory{ nullptr };
     VkImageView m_DepthImageView{ nullptr };
@@ -191,30 +169,6 @@ class HelloTriangleApplication: public Viking::Application {
         createInfo.pfnUserCallback = debugCallback;
     }
 
-    void pickPhysicalDevice() {
-        uint32_t deviceCount = 0;
-        vkEnumeratePhysicalDevices(m_Instance, &deviceCount, nullptr);
-
-        if (deviceCount == 0) {
-            throw std::runtime_error("failed to find GPUs with Vulkan support!");
-        }
-
-        std::vector<VkPhysicalDevice> devices(deviceCount);
-        vkEnumeratePhysicalDevices(m_Instance, &deviceCount, devices.data());
-
-        for (const auto& device : devices) {
-            if (isDeviceSuitable(device)) {
-                physicalDevice = device;
-                msaaSamples = getMaxUsableSampleCount();
-                break;
-            }
-        }
-
-        if (physicalDevice == VK_NULL_HANDLE) {
-            throw std::runtime_error("failed to find a suitable GPU!");
-        }
-    }
-
     void createFramebuffers() {
         m_SwapChainFramebuffers.resize(m_SwapChainImageViews.size());
 
@@ -238,26 +192,6 @@ class HelloTriangleApplication: public Viking::Application {
                 throw std::runtime_error("failed to create framebuffer!");
             }
         }
-    }
-
-    void createCommandPool() {
-        const auto queueFamilyIndices = findQueueFamilies(physicalDevice);
-
-        VkCommandPoolCreateInfo poolInfo{};
-        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-
-        if (vkCreateCommandPool(m_Device, &poolInfo, nullptr, &m_CommandPool) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create graphics command pool!");
-        }
-    }
-
-    void createColorResources() {
-        const auto colorFormat = m_SwapChainImageFormat;
-
-        createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_ColorImage, m_ColorImageMemory);
-        m_ColorImageView = createImageView(m_ColorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
     }
 
     void createDepthResources() {
@@ -420,41 +354,6 @@ class HelloTriangleApplication: public Viking::Application {
         if (vkCreateSampler(m_Device, &samplerInfo, nullptr, &m_TextureSampler) != VK_SUCCESS) {
             throw std::runtime_error("failed to create texture sampler!");
         }
-    }
-
-    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const {
-        VkImageCreateInfo imageInfo{};
-        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageInfo.extent.width = width;
-        imageInfo.extent.height = height;
-        imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = mipLevels;
-        imageInfo.arrayLayers = 1;
-        imageInfo.format = format;
-        imageInfo.tiling = tiling;
-        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imageInfo.usage = usage;
-        imageInfo.samples = numSamples;
-        imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        if (vkCreateImage(m_Device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create image!");
-        }
-
-        VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements(m_Device, image, &memRequirements);
-
-        VkMemoryAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
-
-        if (vkAllocateMemory(m_Device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate image memory!");
-        }
-
-        vkBindImageMemory(m_Device, image, imageMemory, 0);
     }
 
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels) const {
@@ -750,19 +649,6 @@ class HelloTriangleApplication: public Viking::Application {
         vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
         endSingleTimeCommands(commandBuffer);
-    }
-
-    [[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
-        VkPhysicalDeviceMemoryProperties memProperties;
-        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-            if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-                return i;
-            }
-        }
-
-        throw std::runtime_error("failed to find suitable memory type!");
     }
 
     void createCommandBuffers() {

@@ -120,9 +120,13 @@ private:
     [[nodiscard]] VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
     void createDescriptorSetLayout();
     void createGraphicsPipeline();
+    void createCommandPool();
+    void createColorResources();
 
     static std::vector<char> readFile(const std::string& filename);
     [[nodiscard]] VkShaderModule createShaderModule(const std::vector<char>& code) const;
+    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const;
+    [[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 
     bool m_FramebufferResized{ false };
 
@@ -150,4 +154,10 @@ private:
 
     VkPipelineLayout m_PipelineLayout{ nullptr };
     VkPipeline m_GraphicsPipeline{ nullptr };
+
+    VkCommandPool m_CommandPool{ nullptr };
+
+    VkImage m_ColorImage{ nullptr };
+    VkDeviceMemory m_ColorImageMemory{ nullptr };
+    VkImageView m_ColorImageView{ nullptr };
 };
