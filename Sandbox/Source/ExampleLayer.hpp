@@ -122,6 +122,8 @@ private:
     void createGraphicsPipeline();
     void createCommandPool();
     void createColorResources();
+    void createDepthResources();
+    void createFramebuffers();
 
     static std::vector<char> readFile(const std::string& filename);
     [[nodiscard]] VkShaderModule createShaderModule(const std::vector<char>& code) const;
@@ -160,4 +162,8 @@ private:
     VkImage m_ColorImage{ nullptr };
     VkDeviceMemory m_ColorImageMemory{ nullptr };
     VkImageView m_ColorImageView{ nullptr };
+
+    VkImage m_DepthImage{ nullptr };
+    VkDeviceMemory m_DepthImageMemory{ nullptr };
+    VkImageView m_DepthImageView{ nullptr };
 };

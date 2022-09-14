@@ -125,8 +125,8 @@ void ExampleLayer::initVulkan() {
     createGraphicsPipeline();
     createCommandPool();
     createColorResources();
-    //createDepthResources();
-    //createFramebuffers();
+    createDepthResources();
+    createFramebuffers();
     //createTextureImage();
     //createTextureImageView();
     //createTextureSampler();
@@ -765,6 +765,38 @@ void ExampleLayer::createColorResources() {
 
     createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, m_MsaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_ColorImage, m_ColorImageMemory);
     m_ColorImageView = createImageView(m_ColorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+}
+
+void ExampleLayer::createDepthResources() {
+    const auto depthFormat = findDepthFormat();
+
+    createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, m_MsaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
+    m_DepthImageView = createImageView(m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+}
+
+void ExampleLayer::createFramebuffers() {
+    m_SwapChainFramebuffers.resize(m_SwapChainImageViews.size());
+
+    for (auto i = 0; i < m_SwapChainImageViews.size(); i++) {
+        std::array<VkImageView, 3> attachments = {
+            m_ColorImageView,
+            m_DepthImageView,
+            m_SwapChainImageViews[i]
+        };
+
+        VkFramebufferCreateInfo framebufferInfo{};
+        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferInfo.renderPass = m_RenderPass;
+        framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+        framebufferInfo.pAttachments = attachments.data();
+        framebufferInfo.width = m_SwapChainExtent.width;
+        framebufferInfo.height = m_SwapChainExtent.height;
+        framebufferInfo.layers = 1;
+
+        if (vkCreateFramebuffer(m_Device, &framebufferInfo, nullptr, &m_SwapChainFramebuffers[i]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create framebuffer!");
+        }
+    }
 }
 
 std::vector<char> ExampleLayer::readFile(const std::string& filename) {

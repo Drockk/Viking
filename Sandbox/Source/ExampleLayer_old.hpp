@@ -42,10 +42,6 @@ struct UniformBufferObject {
 };
 
 class HelloTriangleApplication: public Viking::Application {
-    VkImage m_DepthImage{ nullptr };
-    VkDeviceMemory m_DepthImageMemory{ nullptr };
-    VkImageView m_DepthImageView{ nullptr };
-
     uint32_t m_MipLevels{ 0 };
     VkImage m_TextureImage{ nullptr };
     VkDeviceMemory m_TextureImageMemory{ nullptr };
@@ -159,46 +155,6 @@ class HelloTriangleApplication: public Viking::Application {
         createColorResources();
         createDepthResources();
         createFramebuffers();
-    }
-
-    static void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
-        createInfo = {};
-        createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-        createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-        createInfo.pfnUserCallback = debugCallback;
-    }
-
-    void createFramebuffers() {
-        m_SwapChainFramebuffers.resize(m_SwapChainImageViews.size());
-
-        for (auto i = 0; i < m_SwapChainImageViews.size(); i++) {
-            std::array<VkImageView, 3> attachments = {
-                m_ColorImageView,
-                m_DepthImageView,
-                m_SwapChainImageViews[i]
-            };
-
-            VkFramebufferCreateInfo framebufferInfo{};
-            framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            framebufferInfo.renderPass = m_RenderPass;
-            framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-            framebufferInfo.pAttachments = attachments.data();
-            framebufferInfo.width = m_SwapChainExtent.width;
-            framebufferInfo.height = m_SwapChainExtent.height;
-            framebufferInfo.layers = 1;
-
-            if (vkCreateFramebuffer(m_Device, &framebufferInfo, nullptr, &m_SwapChainFramebuffers[i]) != VK_SUCCESS) {
-                throw std::runtime_error("failed to create framebuffer!");
-            }
-        }
-    }
-
-    void createDepthResources() {
-        const auto depthFormat = findDepthFormat();
-
-        createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
-        m_DepthImageView = createImageView(m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
     }
 
     static bool hasStencilComponent(VkFormat format) {
