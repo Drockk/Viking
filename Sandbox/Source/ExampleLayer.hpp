@@ -124,11 +124,20 @@ private:
     void createColorResources();
     void createDepthResources();
     void createFramebuffers();
+    void createTextureImage();
 
     static std::vector<char> readFile(const std::string& filename);
     [[nodiscard]] VkShaderModule createShaderModule(const std::vector<char>& code) const;
     void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const;
     [[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
+    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels) const;
+    [[nodiscard]] VkCommandBuffer beginSingleTimeCommands() const;
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer) const;
+    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const;
+    void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) const;
+    void createTextureImageView();
+    void createTextureSampler();
 
     bool m_FramebufferResized{ false };
 
@@ -166,4 +175,11 @@ private:
     VkImage m_DepthImage{ nullptr };
     VkDeviceMemory m_DepthImageMemory{ nullptr };
     VkImageView m_DepthImageView{ nullptr };
+
+    uint32_t m_MipLevels{ 0 };
+
+    VkImage m_TextureImage{ nullptr };
+    VkDeviceMemory m_TextureImageMemory{ nullptr };
+    VkImageView m_TextureImageView{ nullptr };
+    VkSampler m_TextureSampler{ nullptr };
 };
