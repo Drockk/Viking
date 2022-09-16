@@ -138,6 +138,12 @@ private:
     void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) const;
     void createTextureImageView();
     void createTextureSampler();
+    void loadModel();
+    void createVertexBuffer();
+    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;
+    void createIndexBuffer();
+    void createUniformBuffers();
+    void createDescriptorPool();
 
     bool m_FramebufferResized{ false };
 
@@ -182,4 +188,18 @@ private:
     VkDeviceMemory m_TextureImageMemory{ nullptr };
     VkImageView m_TextureImageView{ nullptr };
     VkSampler m_TextureSampler{ nullptr };
+
+    std::vector<Vertex> m_Vertices;
+    std::vector<uint32_t> m_Indices;
+
+    VkBuffer m_VertexBuffer{ nullptr };
+    VkDeviceMemory m_VertexBufferMemory{ nullptr };
+
+    VkBuffer m_IndexBuffer{ nullptr };
+    VkDeviceMemory m_IndexBufferMemory{ nullptr };
+
+    std::vector<VkBuffer> m_UniformBuffers;
+    std::vector<VkDeviceMemory> m_UniformBuffersMemory;
+
+    VkDescriptorPool m_DescriptorPool{ nullptr };
 };
