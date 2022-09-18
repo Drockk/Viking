@@ -149,8 +149,14 @@ private:
     void createSyncObjects();
 
     void cleanup();
-    void cleanupSwapChain();
-    void destroyDebugUtilsMessengerExt(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
+    void cleanupSwapChain() const;
+    static void destroyDebugUtilsMessengerExt(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
+
+    void drawFrame();
+    void recreateSwapChain();
+
+    void updateUniformBuffer(uint32_t currentImage) const;
+    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) const;
 
     bool m_FramebufferResized{ false };
 
@@ -215,4 +221,6 @@ private:
     std::vector<VkSemaphore> m_ImageAvailableSemaphores;
     std::vector<VkSemaphore> m_RenderFinishedSemaphores;
     std::vector<VkFence> m_InFlightFences;
+
+    uint32_t m_CurrentFrame{ 0 };
 };
