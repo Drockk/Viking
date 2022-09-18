@@ -148,6 +148,10 @@ private:
     void createCommandBuffers();
     void createSyncObjects();
 
+    void cleanup();
+    void cleanupSwapChain();
+    void destroyDebugUtilsMessengerExt(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
+
     bool m_FramebufferResized{ false };
 
     GLFWwindow* m_Window{ nullptr };
