@@ -144,6 +144,9 @@ private:
     void createIndexBuffer();
     void createUniformBuffers();
     void createDescriptorPool();
+    void createDescriptorSets();
+    void createCommandBuffers();
+    void createSyncObjects();
 
     bool m_FramebufferResized{ false };
 
@@ -202,4 +205,10 @@ private:
     std::vector<VkDeviceMemory> m_UniformBuffersMemory;
 
     VkDescriptorPool m_DescriptorPool{ nullptr };
+    std::vector<VkDescriptorSet> m_DescriptorSets;
+    std::vector<VkCommandBuffer> m_CommandBuffers;
+
+    std::vector<VkSemaphore> m_ImageAvailableSemaphores;
+    std::vector<VkSemaphore> m_RenderFinishedSemaphores;
+    std::vector<VkFence> m_InFlightFences;
 };
