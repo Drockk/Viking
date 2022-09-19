@@ -10,9 +10,7 @@ int main(int argc, char** argv) {
 
     try {
         const auto app = createApplication({argc, argv});
-        app->init();
         app->run();
-        app->shutdown();
     }
     catch (const std::exception& e) {
         VI_CORE_CRITICAL("{0}", e.what());
