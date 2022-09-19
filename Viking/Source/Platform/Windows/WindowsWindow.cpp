@@ -1,7 +1,6 @@
 #include "vipch.hpp"
 #include "Platform/Windows/WindowsWindow.hpp"
 
-
 Viking::WindowsWindow::WindowsWindow(const WindowProps& props) {
 	m_Props = props;
 	if (!glfwInit()) {

@@ -22,7 +22,7 @@ namespace Viking {
 		[[nodiscard]] bool isVSync() const override;
 
 		void* getNativeWindow() const override;
-
+		
 	private:
 		WindowProps m_Props;
 		GLFWwindow* m_Window{ nullptr };
