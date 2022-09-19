@@ -6,7 +6,7 @@
 #endif
 
 namespace Viking {
-	Scope<Window> create(const WindowProps& props) {
+	Scope<Window> Window::create(const WindowProps& props) {
 #ifdef VI_PLATFORM_WINDOWS
 		return createScope<WindowsWindow>(props);
 #else

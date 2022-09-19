@@ -32,7 +32,7 @@ namespace Viking {
         virtual void setVSync(bool enabled) = 0;
         [[nodiscard]] virtual bool isVSync() const = 0;
 
-        virtual void* getNativeWindow() const = 0;
+        [[nodiscard]] virtual void* getNativeWindow() const = 0;
 
         static Scope<Window> create(const WindowProps& props = WindowProps());
     };
