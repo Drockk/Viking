@@ -2,9 +2,6 @@
 
 #include <Viking.hpp>
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_ENABLE_EXPERIMENTAL
@@ -13,6 +10,8 @@
 #include <glm/gtx/hash.hpp>
 
 #include <optional>
+
+#include <vulkan/vulkan.hpp>
 
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
@@ -95,7 +94,6 @@ private:
     static void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
 
-    void initWindow();
     void initVulkan();
 
     //Init Vulkan Methods
@@ -159,8 +157,6 @@ private:
     void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) const;
 
     bool m_FramebufferResized{ false };
-
-    GLFWwindow* m_Window{ nullptr };
 
     VkDevice m_Device{ nullptr };
     VkDebugUtilsMessengerEXT m_DebugMessenger{ nullptr };

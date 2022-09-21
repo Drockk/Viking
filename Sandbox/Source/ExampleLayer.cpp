@@ -9,6 +9,8 @@
 #include <set>
 #include <fstream>
 
+#include "GLFW/glfw3.h"
+
 constexpr uint32_t WIDTH{ 800 };
 constexpr uint32_t HEIGHT{ 600 };
 
@@ -45,7 +47,6 @@ ExampleLayer::ExampleLayer(): Layer("ExampleLayer") {
 }
 
 void ExampleLayer::onAttach() {
-    initWindow();
     initVulkan();
 }
 
@@ -54,8 +55,6 @@ void ExampleLayer::onDetach() {
 }
 
 void ExampleLayer::onUpdate(Viking::TimeStep timeStep) {
-    glfwPollEvents();
-
     drawFrame();
 
     vkDeviceWaitIdle(m_Device);
@@ -113,20 +112,6 @@ VkBool32 ExampleLayer::debugCallback([[maybe_unused]]  VkDebugUtilsMessageSeveri
     VI_CORE_DEBUG("validation layer: {0}", pCallbackData->pMessage);
 
     return VK_FALSE;
-}
-
-void ExampleLayer::initWindow() {
-    glfwInit();
-
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
-    m_Window = glfwCreateWindow(WIDTH, HEIGHT, "Sandbox", nullptr, nullptr);
-    glfwSetWindowUserPointer(m_Window, this);
-    //FIXME: Later
-    //glfwSetFramebufferSizeCallback(m_Window, [](GLFWwindow* window, [[maybe_unused]] int width, [[maybe_unused]] int height) {
-    //	m_FramebufferResized 
-    //});
-
 }
 
 void ExampleLayer::initVulkan() {
@@ -210,7 +195,7 @@ void ExampleLayer::setupDebugMessenger() {
 }
 
 void ExampleLayer::createSurface() {
-    if(glfwCreateWindowSurface(m_Instance, m_Window, nullptr, &m_Surface) != VK_SUCCESS) {
+    if(glfwCreateWindowSurface(m_Instance, static_cast<GLFWwindow*>(Viking::Application::get().getWindow().getNativeWindow()), nullptr, &m_Surface) != VK_SUCCESS) {
         throw std::runtime_error("failed to create window surface!");
     }
 }
@@ -478,7 +463,7 @@ VkExtent2D ExampleLayer::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabi
     }
 
     int width, height;
-    glfwGetFramebufferSize(m_Window, &width, &height);
+    glfwGetFramebufferSize(static_cast<GLFWwindow*>(Viking::Application::get().getWindow().getNativeWindow()), &width, &height);
 
     VkExtent2D actualExtent = {
         static_cast<uint32_t>(width),
@@ -1426,10 +1411,6 @@ void ExampleLayer::cleanup() {
 
     vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
     vkDestroyInstance(m_Instance, nullptr);
-
-    glfwDestroyWindow(m_Window);
-
-    glfwTerminate();
 }
 
 void ExampleLayer::cleanupSwapChain() const {
@@ -1528,9 +1509,9 @@ void ExampleLayer::drawFrame() {
 
 void ExampleLayer::recreateSwapChain() {
     auto width = 0, height = 0;
-    glfwGetFramebufferSize(m_Window, &width, &height);
+    glfwGetFramebufferSize(static_cast<GLFWwindow*>(Viking::Application::get().getWindow().getNativeWindow()), &width, &height);
     while (width == 0 || height == 0) {
-        glfwGetFramebufferSize(m_Window, &width, &height);
+        glfwGetFramebufferSize(static_cast<GLFWwindow*>(Viking::Application::get().getWindow().getNativeWindow()), &width, &height);
         glfwWaitEvents();
     }
 

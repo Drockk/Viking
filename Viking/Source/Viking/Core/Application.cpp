@@ -56,6 +56,8 @@ namespace Viking {
                     }
                 }
             }
+
+            m_Window->onUpdate();
         }
     }
 

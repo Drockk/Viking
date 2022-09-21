@@ -24,7 +24,17 @@ namespace Viking {
 		void* getNativeWindow() const override;
 		
 	private:
-		WindowProps m_Props;
+
+		struct WindowData {
+			std::string Title;
+			unsigned int Width;
+			unsigned int Height;
+			bool VSync;
+
+			EventCallbackFn EventCallback;
+		};
+
+		WindowData m_Data;
 		GLFWwindow* m_Window{ nullptr };
 	};
 }

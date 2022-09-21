@@ -40,6 +40,10 @@ namespace Viking {
             return m_CommandLineArgs;
         }
 
+        Window& getWindow() {
+            return *m_Window;
+        }
+
     private:
         void run();
         bool onWindowClose(WindowCloseEvent&);
