@@ -40,7 +40,8 @@ project "Sandbox"
 
         defines
         {
-            "VI_PLATFORM_WINDOWS"
+            "VI_PLATFORM_WINDOWS",
+            "GLFW_INCLUDE_NONE"
         }
 
     filter "configurations:Debug"

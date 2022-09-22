@@ -1,6 +1,7 @@
 #pragma once
 #include "Viking/Core/Base.hpp"
 #include "Viking/Core/LayerStack.hpp"
+#include "Viking/Core/Window.hpp"
 #include "Viking/Events/Event.hpp"
 #include "Viking/Events/ApplicationEvent.hpp"
 
@@ -39,12 +40,18 @@ namespace Viking {
             return m_CommandLineArgs;
         }
 
+        Window& getWindow() {
+            return *m_Window;
+        }
+
     private:
         void run();
         bool onWindowClose(WindowCloseEvent&);
         bool onWindowResize(const WindowResizeEvent& e);
 
         ApplicationCommandLineArgs m_CommandLineArgs;
+        Scope<Window> m_Window;
+
         bool m_Running{ true };
         bool m_Minimized{ false };
 

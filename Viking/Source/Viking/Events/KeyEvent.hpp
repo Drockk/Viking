@@ -52,6 +52,7 @@ namespace Viking {
     };
 
     class KeyTypedEvent : public KeyEvent {
+    public:
         explicit KeyTypedEvent(const KeyCode keycode) : KeyEvent(keycode) {
         }
 

@@ -11,6 +11,8 @@ namespace Viking {
     Application::Application(const std::string& name, const ApplicationCommandLineArgs args): m_CommandLineArgs(args) {
         VI_CORE_ASSERT(!s_Instance, "Application already exists!");
         s_Instance = this;
+
+        m_Window = Window::create({name, 800, 600});
     }
 
     void Application::close() {
@@ -54,6 +56,8 @@ namespace Viking {
                     }
                 }
             }
+
+            m_Window->onUpdate();
         }
     }
 
