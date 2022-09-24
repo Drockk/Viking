@@ -4,3 +4,5 @@
 
 #include "Viking/Core/Application.hpp"
 #include "Viking/Core/Log.hpp"
+
+#include "Viking/Renderer/Context.hpp"

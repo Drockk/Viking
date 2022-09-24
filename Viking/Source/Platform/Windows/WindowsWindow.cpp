@@ -30,7 +30,7 @@ namespace Viking {
             m_Window = glfwCreateWindow(static_cast<int>(m_Data.Width), static_cast<int>(m_Data.Height), m_Data.Title.c_str(), nullptr, nullptr);
             if (!m_Window) {
                 glfwTerminate();
-                VI_CORE_ASSERT(result, "Could not create GLFW window!");
+                VI_CORE_ASSERT(false, "Could not create GLFW window!");
             }
             ++s_GLFWWindowCount;
         }

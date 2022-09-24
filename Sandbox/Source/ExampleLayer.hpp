@@ -89,16 +89,9 @@ public:
     void onUpdate(Viking::TimeStep timeStep) override;
 
 private:
-    static bool checkValidationLayerSupport();
-    static std::vector<const char*> getRequiredExtensions();
-    static void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
-
     void initVulkan();
 
     //Init Vulkan Methods
-    void createInstance();
-    void setupDebugMessenger();
     void createSurface();
     void pickPhysicalDevice();
     bool isDeviceSuitable(VkPhysicalDevice device) const;
@@ -148,7 +141,6 @@ private:
 
     void cleanup();
     void cleanupSwapChain() const;
-    static void destroyDebugUtilsMessengerExt(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 
     void drawFrame();
     void recreateSwapChain();
@@ -158,9 +150,9 @@ private:
 
     bool m_FramebufferResized{ false };
 
+    Viking::Scope<Viking::Context> m_Instance;
+
     VkDevice m_Device{ nullptr };
-    VkDebugUtilsMessengerEXT m_DebugMessenger{ nullptr };
-    VkInstance m_Instance{ nullptr };
     VkSampleCountFlagBits m_MsaaSamples{ VK_SAMPLE_COUNT_1_BIT };
     VkPhysicalDevice m_PhysicalDevice;
     VkSurfaceKHR m_Surface{ nullptr };

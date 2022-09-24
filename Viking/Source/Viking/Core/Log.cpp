@@ -2,8 +2,11 @@
 
 #include "Viking/Core/Log.hpp"
 
+// This ignores all warnings raised inside External headers
+#pragma warning(push, 0)
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
+#pragma warning(pop)
 
 namespace Viking {
 
