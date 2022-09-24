@@ -1,0 +1,29 @@
+#pragma once
+
+#include "Viking/Renderer/Context.hpp"
+
+#include "vulkan/vulkan.hpp"
+
+namespace Viking {
+	class VulkanContext: public Context {
+	public:
+		VulkanContext() = default;
+		~VulkanContext() override;
+
+		void init(const std::string& name) override;
+		VkInstance getInstance() const;
+
+	private:
+		static bool checkValidationLayerSupport();
+		static std::vector<const char*> getRequiredExtensions();
+		static void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
+		void setupDebugMessenger();
+		static VkResult createDebugUtilsMessengerExt(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
+		static void destroyDebugUtilsMessengerExt(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger,
+		                                          const VkAllocationCallbacks* pAllocator);
+
+		VkInstance m_Instance{ nullptr };
+		VkDebugUtilsMessengerEXT m_DebugMessenger{ nullptr };
+	};
+}

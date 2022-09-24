@@ -15,6 +15,12 @@
     #define VI_DEBUGBREAK()
 #endif
 
+#ifndef VI_DEBUG
+constexpr bool ENABLE_VALIDATION_LAYERS{ false };
+#else
+constexpr bool ENABLE_VALIDATION_LAYERS{ true };
+#endif
+
 #define VI_EXPAND_MACRO(x) x
 #define VI_STRINGIFY_MACRO(x) #x
 
