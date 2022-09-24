@@ -50,8 +50,10 @@ namespace Viking {
 
             createInfo.pNext = nullptr;
         }
+        const auto result = vkCreateInstance(&createInfo, nullptr, &m_Instance);
+        VI_CORE_ASSERT(result == VK_SUCCESS, "Failed to create instance!");
 
-        VI_CORE_ASSERT(vkCreateInstance(&createInfo, nullptr, &m_Instance) != VK_SUCCESS, "Failed to create instance!");
+        setupDebugMessenger();
     }
 
     VkInstance VulkanContext::getInstance() const {
