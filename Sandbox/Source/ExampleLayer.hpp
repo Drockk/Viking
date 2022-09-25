@@ -92,7 +92,6 @@ private:
     void initVulkan();
 
     //Init Vulkan Methods
-    void createSurface();
     void pickPhysicalDevice();
     bool isDeviceSuitable(VkPhysicalDevice device) const;
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) const;
@@ -155,7 +154,6 @@ private:
     VkDevice m_Device{ nullptr };
     VkSampleCountFlagBits m_MsaaSamples{ VK_SAMPLE_COUNT_1_BIT };
     VkPhysicalDevice m_PhysicalDevice;
-    VkSurfaceKHR m_Surface{ nullptr };
 
     VkQueue m_GraphicsQueue{ nullptr };
     VkQueue m_PresentQueue{ nullptr };

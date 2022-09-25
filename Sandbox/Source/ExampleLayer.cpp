@@ -45,10 +45,6 @@ void ExampleLayer::onUpdate(Viking::TimeStep timeStep) {
 }
 
 void ExampleLayer::initVulkan() {
-    m_Instance = Viking::Context::create();
-    m_Instance->init("Sandbox");
-
-    createSurface();
     pickPhysicalDevice();
     createLogicalDevice();
     createSwapChain();
@@ -73,22 +69,16 @@ void ExampleLayer::initVulkan() {
     createSyncObjects();
 }
 
-void ExampleLayer::createSurface() {
-    if(glfwCreateWindowSurface(static_cast<Viking::VulkanContext*>(m_Instance.get())->getInstance(), static_cast<GLFWwindow*>(Viking::Application::get().getWindow().getNativeWindow()), nullptr, &m_Surface) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create window surface!");
-    }
-}
-
 void ExampleLayer::pickPhysicalDevice() {
     uint32_t deviceCount{ 0 };
-    vkEnumeratePhysicalDevices(static_cast<Viking::VulkanContext*>(m_Instance.get())->getInstance(), &deviceCount, nullptr);
+    vkEnumeratePhysicalDevices(static_cast<VkInstance>(Viking::Application::get().getWindow().getContext()->getInstance()), &deviceCount, nullptr);
 
     if(deviceCount == 0) {
         throw std::runtime_error("Failed to find GPUs with Vulkan support!");
     }
 
     std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(static_cast<Viking::VulkanContext*>(m_Instance.get())->getInstance(), &deviceCount, devices.data());
+    vkEnumeratePhysicalDevices(static_cast<VkInstance>(Viking::Application::get().getWindow().getContext()->getInstance()), &deviceCount, devices.data());
 
     for(const auto& device: devices) {
         if (isDeviceSuitable(device)) {
@@ -135,7 +125,7 @@ QueueFamilyIndices ExampleLayer::findQueueFamilies(VkPhysicalDevice device) cons
         }
 
         VkBool32 presentSupport = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, m_Surface, &presentSupport);
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, static_cast<VkSurfaceKHR>(Viking::Application::get().getWindow().getContext()->getSurface()), &presentSupport);
 
         if(presentSupport) {
             indices.presentFamily = i;
@@ -170,22 +160,22 @@ bool ExampleLayer::checkDeviceExtensionSupport(VkPhysicalDevice device) {
 SwapChainSupportDetails ExampleLayer::querySwapChainSupport(VkPhysicalDevice device) const {
     SwapChainSupportDetails details;
 
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_Surface, &details.capabilities);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, static_cast<VkSurfaceKHR>(Viking::Application::get().getWindow().getContext()->getSurface()), &details.capabilities);
 
     uint32_t formatCount{ 0 };
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_Surface, &formatCount, nullptr);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, static_cast<VkSurfaceKHR>(Viking::Application::get().getWindow().getContext()->getSurface()), &formatCount, nullptr);
 
     if(formatCount != 0) {
         details.formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_Surface, &formatCount, details.formats.data());
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, static_cast<VkSurfaceKHR>(Viking::Application::get().getWindow().getContext()->getSurface()), &formatCount, details.formats.data());
     }
 
     uint32_t presentModeCount{ 0 };
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_Surface, &presentModeCount, nullptr);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, static_cast<VkSurfaceKHR>(Viking::Application::get().getWindow().getContext()->getSurface()), &presentModeCount, nullptr);
 
     if(presentModeCount != 0) {
         details.presentModes.resize(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_Surface, &presentModeCount, details.presentModes.data());
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, static_cast<VkSurfaceKHR>(Viking::Application::get().getWindow().getContext()->getSurface()), &presentModeCount, details.presentModes.data());
     }
 
     return details;
@@ -280,7 +270,7 @@ void ExampleLayer::createSwapChain() {
 
     VkSwapchainCreateInfoKHR createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    createInfo.surface = m_Surface;
+    createInfo.surface = static_cast<VkSurfaceKHR>(Viking::Application::get().getWindow().getContext()->getSurface());
     createInfo.minImageCount = imageCount;
     createInfo.imageFormat = surfaceFormat.format;
     createInfo.imageColorSpace = surfaceFormat.colorSpace;
@@ -1283,8 +1273,6 @@ void ExampleLayer::cleanup() {
     vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
 
     vkDestroyDevice(m_Device, nullptr);
-
-    vkDestroySurfaceKHR(static_cast<Viking::VulkanContext*>(m_Instance.get())->getInstance(), m_Surface, nullptr);
 }
 
 void ExampleLayer::cleanupSwapChain() const {

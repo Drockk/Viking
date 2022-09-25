@@ -4,6 +4,7 @@
 
 #include "Viking/Core/Base.hpp"
 #include "Viking/Events/Event.hpp"
+#include "Viking/Renderer/Context.hpp"
 
 namespace Viking {
     struct WindowProps {
@@ -33,6 +34,7 @@ namespace Viking {
         [[nodiscard]] virtual bool isVSync() const = 0;
 
         [[nodiscard]] virtual void* getNativeWindow() const = 0;
+        [[nodiscard]] virtual Ref<Context> getContext() const = 0;
 
         static Scope<Window> create(const WindowProps& props = WindowProps());
     };

@@ -6,7 +6,7 @@
 
 namespace Viking {
 
-	Scope<Context> Context::create() {
-		return createScope<VulkanContext>();
+	Ref<Context> Context::create() {
+		return createRef<VulkanContext>();
 	}
 }

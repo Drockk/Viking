@@ -38,6 +38,9 @@ namespace Viking {
         glfwSetWindowUserPointer(m_Window, &m_Data);
         WindowsWindow::setVSync(true);
 
+        m_Context = Context::create();
+        m_Context->init(m_Data.Title, m_Window);
+
         //Set GLFW callbacks
         glfwSetWindowSizeCallback(m_Window, [](GLFWwindow* window, const int width, const int height) {
             WindowData& data = *static_cast<WindowData*>(glfwGetWindowUserPointer(window));
@@ -160,5 +163,9 @@ namespace Viking {
 
     void* WindowsWindow::getNativeWindow() const {
         return m_Window;
+    }
+
+    Ref<Context> WindowsWindow::getContext() const {
+        return m_Context;
     }
 }

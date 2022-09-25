@@ -4,6 +4,8 @@
 
 #include "Viking/Core/Window.hpp"
 
+#include "Viking/Renderer/Context.hpp"
+
 namespace Viking {
 	class WindowsWindow: public Window {
 	public:
@@ -21,10 +23,10 @@ namespace Viking {
 
 		[[nodiscard]] bool isVSync() const override;
 
-		void* getNativeWindow() const override;
+		[[nodiscard]] void* getNativeWindow() const override;
+		[[nodiscard]] Ref<Context> getContext() const override;
 		
 	private:
-
 		struct WindowData {
 			std::string Title;
 			unsigned int Width;
@@ -36,5 +38,7 @@ namespace Viking {
 
 		WindowData m_Data;
 		GLFWwindow* m_Window{ nullptr };
+
+		Ref<Context> m_Context;
 	};
 }
