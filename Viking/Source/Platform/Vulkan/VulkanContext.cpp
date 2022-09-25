@@ -15,10 +15,12 @@ namespace Viking {
             destroyDebugUtilsMessengerExt(m_Instance, m_DebugMessenger, nullptr);
         }
 
+        vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
+
         vkDestroyInstance(m_Instance, nullptr);
     }
 
-    void VulkanContext::init(const std::string& name) {
+    void VulkanContext::init(const std::string& name, GLFWwindow* window) {
         VI_CORE_ASSERT(ENABLE_VALIDATION_LAYERS && !checkValidationLayerSupport(), "Validation layers requested, but not available!");
 
         VkApplicationInfo appInfo{};
@@ -54,10 +56,16 @@ namespace Viking {
         VI_CORE_ASSERT(result == VK_SUCCESS, "Failed to create instance!");
 
         setupDebugMessenger();
+
+        createSurface(window);
     }
 
-    VkInstance VulkanContext::getInstance() const {
+    void* VulkanContext::getInstance() {
         return m_Instance;
+    }
+
+    void* VulkanContext::getSurface() {
+        return m_Surface;
     }
 
     bool VulkanContext::checkValidationLayerSupport() {
@@ -141,5 +149,10 @@ namespace Viking {
         if (const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT")); func != nullptr) {
             func(instance, debugMessenger, pAllocator);
         }
+    }
+
+    void VulkanContext::createSurface(GLFWwindow* window) {
+        const auto result = glfwCreateWindowSurface(m_Instance, window, nullptr, &m_Surface);
+        VI_CORE_ASSERT(result != VK_SUCCESS, "Failed to create window surface!");
     }
 }

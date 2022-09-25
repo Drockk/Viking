@@ -1,12 +1,17 @@
 #pragma once
 
+#include <GLFW/glfw3.h>
+
 namespace Viking {
 	class Context {
 	public:
 		Context() = default;
 		virtual ~Context() = default;
-		virtual void init(const std::string& name) = 0;
+		virtual void init(const std::string& name, GLFWwindow*) = 0;
 
-		static Scope<Context> create();
+		virtual void* getInstance() = 0;
+		virtual void* getSurface() = 0;
+
+		static Ref<Context> create();
 	};
 }
