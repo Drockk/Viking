@@ -13,20 +13,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-struct QueueFamilyIndices {
-    std::optional<uint32_t> graphicsFamily;
-    std::optional<uint32_t> presentFamily;
 
-    [[nodiscard]] bool isComplete() const {
-        return graphicsFamily.has_value() && presentFamily.has_value();
-    }
-};
-
-struct SwapChainSupportDetails {
-    VkSurfaceCapabilitiesKHR capabilities{};
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentModes;
-};
 
 struct Vertex {
     glm::vec3 pos;
@@ -74,10 +61,6 @@ template<> struct std::hash<Vertex> {
     }
 };
 
-const std::vector DEVICE_EXTENSION = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME
-};
-
 class ExampleLayer: public Viking::Layer {
 public:
     ExampleLayer();
@@ -92,12 +75,6 @@ private:
     void initVulkan();
 
     //Init Vulkan Methods
-    void pickPhysicalDevice();
-    bool isDeviceSuitable(VkPhysicalDevice device) const;
-    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) const;
-    static bool checkDeviceExtensionSupport(VkPhysicalDevice device);
-    SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) const;
-    [[nodiscard]] VkSampleCountFlagBits getMaxUsableSampleCount() const;
     void createLogicalDevice();
     void createSwapChain();
     static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
@@ -152,8 +129,6 @@ private:
     Viking::Scope<Viking::Context> m_Instance;
 
     VkDevice m_Device{ nullptr };
-    VkSampleCountFlagBits m_MsaaSamples{ VK_SAMPLE_COUNT_1_BIT };
-    VkPhysicalDevice m_PhysicalDevice;
 
     VkQueue m_GraphicsQueue{ nullptr };
     VkQueue m_PresentQueue{ nullptr };
