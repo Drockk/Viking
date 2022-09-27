@@ -26,14 +26,16 @@ namespace Viking {
 
 		void init(VkInstance instance, VkSurfaceKHR surface);
 
+		static VkSampleCountFlagBits getMsaaSamples();
+
 	private:
-		[[nodiscard]] bool isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface);
+		[[nodiscard]] static bool isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface);
 		static QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
 		static bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 		static SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface);
 		[[nodiscard]] VkSampleCountFlagBits getMaxUsableSampleCount() const;
 
 		VkPhysicalDevice m_PhysicalDevice{ VK_NULL_HANDLE };
-		VkSampleCountFlagBits m_MsaaSamples{ VK_SAMPLE_COUNT_1_BIT };
+		static VkSampleCountFlagBits m_MsaaSamples;
 	};
 }

@@ -10,6 +10,9 @@ const std::vector DEVICE_EXTENSION = {
 
 namespace Viking {
 
+    //VkSampleCountFlagBits m_MsaaSamples{ VK_SAMPLE_COUNT_1_BIT };
+    VkSampleCountFlagBits VulkanPhysicalDevice::m_MsaaSamples{ VK_SAMPLE_COUNT_1_BIT };
+
 	void VulkanPhysicalDevice::init(VkInstance instance, VkSurfaceKHR surface) {
 		uint32_t deviceCount{ 0 };
 		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -31,7 +34,11 @@ namespace Viking {
         VI_CORE_ASSERT(m_PhysicalDevice == VK_NULL_HANDLE, "Failed to find a suitable GPU!");
 	}
 
-	bool VulkanPhysicalDevice::isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
+    VkSampleCountFlagBits VulkanPhysicalDevice::getMsaaSamples() {
+        return m_MsaaSamples;
+    }
+
+    bool VulkanPhysicalDevice::isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
         const auto indices = findQueueFamilies(device, surface);
         auto extensionSupported = checkDeviceExtensionSupport(device);
 

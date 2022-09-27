@@ -11,6 +11,7 @@
 
 #include "GLFW/glfw3.h"
 #include "Platform/Vulkan/VulkanContext.hpp"
+#include "Platform/Vulkan/VulkanPhysicalDevice.hpp"
 
 const std::string TEXTURE_PATH = "textures/viking_room.png";
 const std::string MODEL_PATH = "models/viking_room.obj";
@@ -231,7 +232,7 @@ VkImageView ExampleLayer::createImageView(VkImage image, VkFormat format, VkImag
 void ExampleLayer::createRenderPass() {
     VkAttachmentDescription colorAttachment{};
     colorAttachment.format = m_SwapChainImageFormat;
-    colorAttachment.samples = m_MsaaSamples;
+    colorAttachment.samples = Viking::VulkanPhysicalDevice::getMsaaSamples();
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -241,7 +242,7 @@ void ExampleLayer::createRenderPass() {
 
     VkAttachmentDescription depthAttachment{};
     depthAttachment.format = findDepthFormat();
-    depthAttachment.samples = m_MsaaSamples;
+    depthAttachment.samples = Viking::VulkanPhysicalDevice::getMsaaSamples();
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -404,7 +405,7 @@ void ExampleLayer::createGraphicsPipeline() {
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = m_MsaaSamples;
+    multisampling.rasterizationSamples = Viking::VulkanPhysicalDevice::getMsaaSamples();
 
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
     depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -488,14 +489,14 @@ void ExampleLayer::createCommandPool() {
 void ExampleLayer::createColorResources() {
     const auto colorFormat = m_SwapChainImageFormat;
 
-    createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, m_MsaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_ColorImage, m_ColorImageMemory);
+    createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, Viking::VulkanPhysicalDevice::getMsaaSamples(), colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_ColorImage, m_ColorImageMemory);
     m_ColorImageView = createImageView(m_ColorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }
 
 void ExampleLayer::createDepthResources() {
     const auto depthFormat = findDepthFormat();
 
-    createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, m_MsaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
+    createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, Viking::VulkanPhysicalDevice::getMsaaSamples(), depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
     m_DepthImageView = createImageView(m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
 }
 
