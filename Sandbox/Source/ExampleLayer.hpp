@@ -83,8 +83,8 @@ private:
     void createImageViews();
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels) const;
     void createRenderPass();
-    VkFormat findDepthFormat() const;
-    [[nodiscard]] VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
+    static VkFormat findDepthFormat();
+    [[nodiscard]] static VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
     void createDescriptorSetLayout();
     void createGraphicsPipeline();
     void createCommandPool();
@@ -115,7 +115,7 @@ private:
     void createCommandBuffers();
     void createSyncObjects();
 
-    void cleanup();
+    void cleanup() const;
     void cleanupSwapChain() const;
 
     void drawFrame();

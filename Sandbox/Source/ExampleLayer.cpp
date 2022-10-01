@@ -70,7 +70,7 @@ void ExampleLayer::initVulkan() {
 }
 
 void ExampleLayer::createLogicalDevice() {
-    auto indicies = findQueueFamilies(m_PhysicalDevice);
+    auto indicies = Viking::VulkanPhysicalDevice::getQueueFamilyIndices();
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     std::set uniqueQueueFamilies = { indicies.graphicsFamily.value(), indicies.presentFamily.value() };
@@ -104,7 +104,7 @@ void ExampleLayer::createLogicalDevice() {
         createInfo.enabledLayerCount = 0;
     }
 
-    if(vkCreateDevice(m_PhysicalDevice, &createInfo, nullptr, &m_Device) != VK_SUCCESS) {
+    if(vkCreateDevice(Viking::VulkanPhysicalDevice::getPhysicalDevice(), &createInfo, nullptr, &m_Device) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create logical device!");
     }
 
@@ -113,7 +113,7 @@ void ExampleLayer::createLogicalDevice() {
 }
 
 void ExampleLayer::createSwapChain() {
-    const auto swapChainSupport = querySwapChainSupport(m_PhysicalDevice);
+    const auto swapChainSupport = Viking::VulkanPhysicalDevice::getSwapChainSupportDetails();
     const auto surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
     const auto presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
     const auto extent = chooseSwapExtent(swapChainSupport.capabilities);
@@ -133,7 +133,7 @@ void ExampleLayer::createSwapChain() {
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    const auto indices = findQueueFamilies(m_PhysicalDevice);
+    const auto indices = Viking::VulkanPhysicalDevice::getQueueFamilyIndices();
     const uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
     if (indices.graphicsFamily != indices.presentFamily) {
@@ -302,15 +302,15 @@ void ExampleLayer::createRenderPass() {
     }
 }
 
-VkFormat ExampleLayer::findDepthFormat() const {
+VkFormat ExampleLayer::findDepthFormat() {
     return findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
 VkFormat ExampleLayer::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling,
-    VkFormatFeatureFlags features) const {
+    VkFormatFeatureFlags features) {
     for (const auto format : candidates) {
         VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(m_PhysicalDevice, format, &props);
+        vkGetPhysicalDeviceFormatProperties(Viking::VulkanPhysicalDevice::getPhysicalDevice(), format, &props);
 
         if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
             return format;
@@ -474,7 +474,7 @@ void ExampleLayer::createGraphicsPipeline() {
 }
 
 void ExampleLayer::createCommandPool() {
-    const auto queueFamilyIndices = findQueueFamilies(m_PhysicalDevice);
+    const auto queueFamilyIndices = Viking::VulkanPhysicalDevice::getQueueFamilyIndices();
 
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -629,7 +629,7 @@ void ExampleLayer::createImage(uint32_t width, uint32_t height, uint32_t mipLeve
 
 uint32_t ExampleLayer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
     VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(m_PhysicalDevice, &memProperties);
+    vkGetPhysicalDeviceMemoryProperties(Viking::VulkanPhysicalDevice::getPhysicalDevice(), &memProperties);
 
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
         if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
@@ -777,7 +777,7 @@ void ExampleLayer::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t 
     uint32_t mipLevels) const {
     // Check if image format supports linear blitting
     VkFormatProperties formatProperties;
-    vkGetPhysicalDeviceFormatProperties(m_PhysicalDevice, imageFormat, &formatProperties);
+    vkGetPhysicalDeviceFormatProperties(Viking::VulkanPhysicalDevice::getPhysicalDevice(), imageFormat, &formatProperties);
 
     if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
         throw std::runtime_error("texture image format does not support linear blitting!");
@@ -866,8 +866,7 @@ void ExampleLayer::createTextureImageView() {
 }
 
 void ExampleLayer::createTextureSampler() {
-    VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(m_PhysicalDevice, &properties);
+    const auto properties = Viking::VulkanPhysicalDevice::getPhysicalDeviceProperties();
 
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -1091,7 +1090,7 @@ void ExampleLayer::createSyncObjects() {
     }
 }
 
-void ExampleLayer::cleanup() {
+void ExampleLayer::cleanup() const {
     cleanupSwapChain();
 
     vkDestroyPipeline(m_Device, m_GraphicsPipeline, nullptr);

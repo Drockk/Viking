@@ -58,6 +58,8 @@ namespace Viking {
         setupDebugMessenger();
 
         createSurface(window);
+
+        m_PhysicalContext.init(m_Instance, m_Surface);
     }
 
     void* VulkanContext::getInstance() {

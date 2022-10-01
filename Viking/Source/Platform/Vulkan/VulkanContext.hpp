@@ -2,6 +2,8 @@
 
 #include "Viking/Renderer/Context.hpp"
 
+#include "Platform/Vulkan/VulkanPhysicalDevice.hpp"
+
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
 
@@ -26,6 +28,8 @@ namespace Viking {
 		static void destroyDebugUtilsMessengerExt(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger,
 		                                          const VkAllocationCallbacks* pAllocator);
 		void createSurface(GLFWwindow* window);
+
+		VulkanPhysicalDevice m_PhysicalContext;
 
 		VkInstance m_Instance{ nullptr };
 		VkDebugUtilsMessengerEXT m_DebugMessenger{ nullptr };

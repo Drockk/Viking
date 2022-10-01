@@ -4,13 +4,7 @@
 
 #include <set>
 
-const std::vector DEVICE_EXTENSION = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME
-};
-
 namespace Viking {
-
-    //VkSampleCountFlagBits m_MsaaSamples{ VK_SAMPLE_COUNT_1_BIT };
     VkSampleCountFlagBits VulkanPhysicalDevice::m_MsaaSamples{ VK_SAMPLE_COUNT_1_BIT };
 
 	void VulkanPhysicalDevice::init(VkInstance instance, VkSurfaceKHR surface) {
@@ -26,26 +20,45 @@ namespace Viking {
             if (isDeviceSuitable(device, surface)) {
                 m_PhysicalDevice = device;
                 m_MsaaSamples = getMaxUsableSampleCount();
+                m_QueueFamilyIndices = findQueueFamilies(device, surface);
                 break;
             }
         }
 
 
         VI_CORE_ASSERT(m_PhysicalDevice == VK_NULL_HANDLE, "Failed to find a suitable GPU!");
+
+        vkGetPhysicalDeviceProperties(m_PhysicalDevice, &m_PhysicalDeviceProperties);
 	}
 
     VkSampleCountFlagBits VulkanPhysicalDevice::getMsaaSamples() {
         return m_MsaaSamples;
     }
 
+    QueueFamilyIndices VulkanPhysicalDevice::getQueueFamilyIndices() {
+        return m_QueueFamilyIndices;
+    }
+
+    SwapChainSupportDetails VulkanPhysicalDevice::getSwapChainSupportDetails() {
+        return m_SwapChainSupportDetails;
+    }
+
+    VkPhysicalDevice VulkanPhysicalDevice::getPhysicalDevice() {
+        return m_PhysicalDevice;
+    }
+
+    VkPhysicalDeviceProperties VulkanPhysicalDevice::getPhysicalDeviceProperties() {
+        return m_PhysicalDeviceProperties;
+    }
+
     bool VulkanPhysicalDevice::isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
         const auto indices = findQueueFamilies(device, surface);
-        auto extensionSupported = checkDeviceExtensionSupport(device);
+        const auto extensionSupported = checkDeviceExtensionSupport(device);
 
         auto swapChainAdequate = false;
         if (extensionSupported) {
-            auto swapChainSupport = querySwapChainSupport(device, surface);
-            swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
+            m_SwapChainSupportDetails = querySwapChainSupport(device, surface);
+            swapChainAdequate = !m_SwapChainSupportDetails.formats.empty() && !m_SwapChainSupportDetails.presentModes.empty();
         }
 
         VkPhysicalDeviceFeatures supportedFeatures;
@@ -126,7 +139,7 @@ namespace Viking {
         return details;
     }
 
-    VkSampleCountFlagBits VulkanPhysicalDevice::getMaxUsableSampleCount() const {
+    VkSampleCountFlagBits VulkanPhysicalDevice::getMaxUsableSampleCount() {
         VkPhysicalDeviceProperties physicalDeviceProperties;
         vkGetPhysicalDeviceProperties(m_PhysicalDevice, &physicalDeviceProperties);
 

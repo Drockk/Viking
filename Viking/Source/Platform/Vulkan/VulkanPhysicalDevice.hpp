@@ -3,6 +3,10 @@
 #include <optional>
 #include <vulkan/vulkan.hpp>
 
+const std::vector DEVICE_EXTENSION = {
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
 struct QueueFamilyIndices {
 	std::optional<uint32_t> graphicsFamily;
 	std::optional<uint32_t> presentFamily;
@@ -24,18 +28,26 @@ namespace Viking {
 		VulkanPhysicalDevice() = default;
 		~VulkanPhysicalDevice() = default;
 
-		void init(VkInstance instance, VkSurfaceKHR surface);
+		static void init(VkInstance instance, VkSurfaceKHR surface);
 
+		//Temporary
 		static VkSampleCountFlagBits getMsaaSamples();
+		static QueueFamilyIndices getQueueFamilyIndices();
+		static SwapChainSupportDetails getSwapChainSupportDetails();
+		static VkPhysicalDevice getPhysicalDevice();
+		static VkPhysicalDeviceProperties getPhysicalDeviceProperties();
 
 	private:
 		[[nodiscard]] static bool isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface);
 		static QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
 		static bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 		static SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface);
-		[[nodiscard]] VkSampleCountFlagBits getMaxUsableSampleCount() const;
+		[[nodiscard]] static VkSampleCountFlagBits getMaxUsableSampleCount();
 
-		VkPhysicalDevice m_PhysicalDevice{ VK_NULL_HANDLE };
+		inline static VkPhysicalDevice m_PhysicalDevice{ VK_NULL_HANDLE };
 		static VkSampleCountFlagBits m_MsaaSamples;
+		inline static QueueFamilyIndices m_QueueFamilyIndices{};
+		inline static SwapChainSupportDetails m_SwapChainSupportDetails{};
+		inline static VkPhysicalDeviceProperties m_PhysicalDeviceProperties{};
 	};
 }
