@@ -13,6 +13,7 @@ namespace Viking {
         s_Instance = this;
 
         m_Window = Window::create({name, 800, 600});
+        m_Window->setEventCallback(VI_BIND_EVENT_FN(Application::onEvent));
     }
 
     void Application::close() {

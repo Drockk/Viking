@@ -11,6 +11,7 @@
 
 #include "GLFW/glfw3.h"
 #include "Platform/Vulkan/VulkanContext.hpp"
+#include "Platform/Vulkan/VulkanPhysicalDevice.hpp"
 
 const std::string TEXTURE_PATH = "textures/viking_room.png";
 const std::string MODEL_PATH = "models/viking_room.obj";
@@ -45,7 +46,6 @@ void ExampleLayer::onUpdate(Viking::TimeStep timeStep) {
 }
 
 void ExampleLayer::initVulkan() {
-    pickPhysicalDevice();
     createLogicalDevice();
     createSwapChain();
     createImageViews();
@@ -69,153 +69,8 @@ void ExampleLayer::initVulkan() {
     createSyncObjects();
 }
 
-void ExampleLayer::pickPhysicalDevice() {
-    uint32_t deviceCount{ 0 };
-    vkEnumeratePhysicalDevices(static_cast<VkInstance>(Viking::Application::get().getWindow().getContext()->getInstance()), &deviceCount, nullptr);
-
-    if(deviceCount == 0) {
-        throw std::runtime_error("Failed to find GPUs with Vulkan support!");
-    }
-
-    std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(static_cast<VkInstance>(Viking::Application::get().getWindow().getContext()->getInstance()), &deviceCount, devices.data());
-
-    for(const auto& device: devices) {
-        if (isDeviceSuitable(device)) {
-            m_PhysicalDevice = device;
-            m_MsaaSamples = getMaxUsableSampleCount();
-            break;
-        }
-    }
-
-    if(m_PhysicalDevice == VK_NULL_HANDLE) {
-        throw std::runtime_error("Failed to find a suitable GPU!");
-    }
-}
-
-bool ExampleLayer::isDeviceSuitable(VkPhysicalDevice device) const {
-    auto indices = findQueueFamilies(device);
-    auto extensionSupported = checkDeviceExtensionSupport(device);
-
-    auto swapChainAdequate = false;
-    if(extensionSupported) {
-        auto swapChainSupport = querySwapChainSupport(device);
-        swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
-    }
-
-    VkPhysicalDeviceFeatures supportedFeatures;
-    vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
-
-    return indices.isComplete() && extensionSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
-}
-
-QueueFamilyIndices ExampleLayer::findQueueFamilies(VkPhysicalDevice device) const {
-    QueueFamilyIndices indices;
-
-    uint32_t queueFamilyCount{ 0 };
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
-
-    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
-
-    auto i{ 0 };
-    for(const auto& queueFamily: queueFamilies) {
-        if(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            indices.graphicsFamily = i;
-        }
-
-        VkBool32 presentSupport = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, static_cast<VkSurfaceKHR>(Viking::Application::get().getWindow().getContext()->getSurface()), &presentSupport);
-
-        if(presentSupport) {
-            indices.presentFamily = i;
-        }
-
-        if(indices.isComplete()) {
-            break;
-        }
-
-        i++;
-    }
-
-    return indices;
-}
-
-bool ExampleLayer::checkDeviceExtensionSupport(VkPhysicalDevice device) {
-    uint32_t extensionCount{ 0 };
-    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-
-    std::vector<VkExtensionProperties> availableExtension(extensionCount);
-    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtension.data());
-
-    std::set<std::string> requiredExtension(DEVICE_EXTENSION.begin(), DEVICE_EXTENSION.end());
-
-    for(const auto& extension: availableExtension) {
-        requiredExtension.erase(extension.extensionName);
-    }
-
-    return requiredExtension.empty();
-}
-
-SwapChainSupportDetails ExampleLayer::querySwapChainSupport(VkPhysicalDevice device) const {
-    SwapChainSupportDetails details;
-
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, static_cast<VkSurfaceKHR>(Viking::Application::get().getWindow().getContext()->getSurface()), &details.capabilities);
-
-    uint32_t formatCount{ 0 };
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, static_cast<VkSurfaceKHR>(Viking::Application::get().getWindow().getContext()->getSurface()), &formatCount, nullptr);
-
-    if(formatCount != 0) {
-        details.formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, static_cast<VkSurfaceKHR>(Viking::Application::get().getWindow().getContext()->getSurface()), &formatCount, details.formats.data());
-    }
-
-    uint32_t presentModeCount{ 0 };
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, static_cast<VkSurfaceKHR>(Viking::Application::get().getWindow().getContext()->getSurface()), &presentModeCount, nullptr);
-
-    if(presentModeCount != 0) {
-        details.presentModes.resize(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, static_cast<VkSurfaceKHR>(Viking::Application::get().getWindow().getContext()->getSurface()), &presentModeCount, details.presentModes.data());
-    }
-
-    return details;
-}
-
-VkSampleCountFlagBits ExampleLayer::getMaxUsableSampleCount() const {
-    VkPhysicalDeviceProperties physicalDeviceProperties;
-    vkGetPhysicalDeviceProperties(m_PhysicalDevice, &physicalDeviceProperties);
-
-    const auto counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
-
-    if(counts & VK_SAMPLE_COUNT_64_BIT) {
-        return VK_SAMPLE_COUNT_64_BIT;
-    }
-
-    if(counts & VK_SAMPLE_COUNT_32_BIT) {
-        return VK_SAMPLE_COUNT_32_BIT;
-    }
-
-    if (counts & VK_SAMPLE_COUNT_16_BIT) {
-        return VK_SAMPLE_COUNT_16_BIT;
-    }
-
-    if (counts & VK_SAMPLE_COUNT_8_BIT) {
-        return VK_SAMPLE_COUNT_8_BIT;
-    }
-
-    if (counts & VK_SAMPLE_COUNT_4_BIT) {
-        return VK_SAMPLE_COUNT_4_BIT;
-    }
-
-    if (counts & VK_SAMPLE_COUNT_2_BIT) {
-        return VK_SAMPLE_COUNT_2_BIT;
-    }
-
-    return VK_SAMPLE_COUNT_1_BIT;
-}
-
 void ExampleLayer::createLogicalDevice() {
-    auto indicies = findQueueFamilies(m_PhysicalDevice);
+    auto indicies = Viking::VulkanPhysicalDevice::getQueueFamilyIndices();
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     std::set uniqueQueueFamilies = { indicies.graphicsFamily.value(), indicies.presentFamily.value() };
@@ -249,7 +104,7 @@ void ExampleLayer::createLogicalDevice() {
         createInfo.enabledLayerCount = 0;
     }
 
-    if(vkCreateDevice(m_PhysicalDevice, &createInfo, nullptr, &m_Device) != VK_SUCCESS) {
+    if(vkCreateDevice(Viking::VulkanPhysicalDevice::getPhysicalDevice(), &createInfo, nullptr, &m_Device) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create logical device!");
     }
 
@@ -258,7 +113,7 @@ void ExampleLayer::createLogicalDevice() {
 }
 
 void ExampleLayer::createSwapChain() {
-    const auto swapChainSupport = querySwapChainSupport(m_PhysicalDevice);
+    const auto swapChainSupport = Viking::VulkanPhysicalDevice::getSwapChainSupportDetails();
     const auto surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
     const auto presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
     const auto extent = chooseSwapExtent(swapChainSupport.capabilities);
@@ -278,7 +133,7 @@ void ExampleLayer::createSwapChain() {
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    const auto indices = findQueueFamilies(m_PhysicalDevice);
+    const auto indices = Viking::VulkanPhysicalDevice::getQueueFamilyIndices();
     const uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
     if (indices.graphicsFamily != indices.presentFamily) {
@@ -377,7 +232,7 @@ VkImageView ExampleLayer::createImageView(VkImage image, VkFormat format, VkImag
 void ExampleLayer::createRenderPass() {
     VkAttachmentDescription colorAttachment{};
     colorAttachment.format = m_SwapChainImageFormat;
-    colorAttachment.samples = m_MsaaSamples;
+    colorAttachment.samples = Viking::VulkanPhysicalDevice::getMsaaSamples();
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -387,7 +242,7 @@ void ExampleLayer::createRenderPass() {
 
     VkAttachmentDescription depthAttachment{};
     depthAttachment.format = findDepthFormat();
-    depthAttachment.samples = m_MsaaSamples;
+    depthAttachment.samples = Viking::VulkanPhysicalDevice::getMsaaSamples();
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -447,15 +302,15 @@ void ExampleLayer::createRenderPass() {
     }
 }
 
-VkFormat ExampleLayer::findDepthFormat() const {
+VkFormat ExampleLayer::findDepthFormat() {
     return findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
 VkFormat ExampleLayer::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling,
-    VkFormatFeatureFlags features) const {
+    VkFormatFeatureFlags features) {
     for (const auto format : candidates) {
         VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(m_PhysicalDevice, format, &props);
+        vkGetPhysicalDeviceFormatProperties(Viking::VulkanPhysicalDevice::getPhysicalDevice(), format, &props);
 
         if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
             return format;
@@ -550,7 +405,7 @@ void ExampleLayer::createGraphicsPipeline() {
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = m_MsaaSamples;
+    multisampling.rasterizationSamples = Viking::VulkanPhysicalDevice::getMsaaSamples();
 
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
     depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -619,7 +474,7 @@ void ExampleLayer::createGraphicsPipeline() {
 }
 
 void ExampleLayer::createCommandPool() {
-    const auto queueFamilyIndices = findQueueFamilies(m_PhysicalDevice);
+    const auto queueFamilyIndices = Viking::VulkanPhysicalDevice::getQueueFamilyIndices();
 
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -634,14 +489,14 @@ void ExampleLayer::createCommandPool() {
 void ExampleLayer::createColorResources() {
     const auto colorFormat = m_SwapChainImageFormat;
 
-    createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, m_MsaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_ColorImage, m_ColorImageMemory);
+    createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, Viking::VulkanPhysicalDevice::getMsaaSamples(), colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_ColorImage, m_ColorImageMemory);
     m_ColorImageView = createImageView(m_ColorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }
 
 void ExampleLayer::createDepthResources() {
     const auto depthFormat = findDepthFormat();
 
-    createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, m_MsaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
+    createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, Viking::VulkanPhysicalDevice::getMsaaSamples(), depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
     m_DepthImageView = createImageView(m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
 }
 
@@ -774,7 +629,7 @@ void ExampleLayer::createImage(uint32_t width, uint32_t height, uint32_t mipLeve
 
 uint32_t ExampleLayer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
     VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(m_PhysicalDevice, &memProperties);
+    vkGetPhysicalDeviceMemoryProperties(Viking::VulkanPhysicalDevice::getPhysicalDevice(), &memProperties);
 
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
         if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
@@ -922,7 +777,7 @@ void ExampleLayer::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t 
     uint32_t mipLevels) const {
     // Check if image format supports linear blitting
     VkFormatProperties formatProperties;
-    vkGetPhysicalDeviceFormatProperties(m_PhysicalDevice, imageFormat, &formatProperties);
+    vkGetPhysicalDeviceFormatProperties(Viking::VulkanPhysicalDevice::getPhysicalDevice(), imageFormat, &formatProperties);
 
     if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
         throw std::runtime_error("texture image format does not support linear blitting!");
@@ -1011,8 +866,7 @@ void ExampleLayer::createTextureImageView() {
 }
 
 void ExampleLayer::createTextureSampler() {
-    VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(m_PhysicalDevice, &properties);
+    const auto properties = Viking::VulkanPhysicalDevice::getPhysicalDeviceProperties();
 
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -1236,7 +1090,7 @@ void ExampleLayer::createSyncObjects() {
     }
 }
 
-void ExampleLayer::cleanup() {
+void ExampleLayer::cleanup() const {
     cleanupSwapChain();
 
     vkDestroyPipeline(m_Device, m_GraphicsPipeline, nullptr);
