@@ -6,7 +6,6 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
-#include <set>
 #include <fstream>
 
 #include "GLFW/glfw3.h"
@@ -17,10 +16,6 @@ const std::string TEXTURE_PATH = "textures/viking_room.png";
 const std::string MODEL_PATH = "models/viking_room.obj";
 
 constexpr int MAX_FRAMES_IN_FLIGHT{ 2 };
-
-const std::vector VALIDATION_LAYERS = {
-    "VK_LAYER_KHRONOS_validation"
-};
 
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;
@@ -41,12 +36,9 @@ void ExampleLayer::onDetach() {
 
 void ExampleLayer::onUpdate(Viking::TimeStep timeStep) {
     drawFrame();
-
-    vkDeviceWaitIdle(m_Device);
 }
 
 void ExampleLayer::initVulkan() {
-    createLogicalDevice();
     createSwapChain();
     createImageViews();
     createRenderPass();
@@ -67,49 +59,6 @@ void ExampleLayer::initVulkan() {
     createDescriptorSets();
     createCommandBuffers();
     createSyncObjects();
-}
-
-void ExampleLayer::createLogicalDevice() {
-    auto indicies = Viking::VulkanPhysicalDevice::getQueueFamilyIndices();
-
-    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set uniqueQueueFamilies = { indicies.graphicsFamily.value(), indicies.presentFamily.value() };
-
-    auto queuePriority{ 1.0f };
-    for(uint32_t queueFamily: uniqueQueueFamilies) {
-        VkDeviceQueueCreateInfo queueCreateInfo{};
-        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queueCreateInfo.queueFamilyIndex = queueFamily;
-        queueCreateInfo.queueCount = 1;
-        queueCreateInfo.pQueuePriorities = &queuePriority;
-        queueCreateInfos.push_back(queueCreateInfo);
-    }
-
-    VkPhysicalDeviceFeatures deviceFeatures{};
-    deviceFeatures.samplerAnisotropy = VK_TRUE;
-
-    VkDeviceCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-    createInfo.pQueueCreateInfos = queueCreateInfos.data();
-    createInfo.pEnabledFeatures = &deviceFeatures;
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(DEVICE_EXTENSION.size());
-    createInfo.ppEnabledExtensionNames = DEVICE_EXTENSION.data();
-
-    if constexpr (ENABLE_VALIDATION_LAYERS) {
-        createInfo.enabledLayerCount = static_cast<uint32_t>(VALIDATION_LAYERS.size());
-        createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
-    }
-    else {
-        createInfo.enabledLayerCount = 0;
-    }
-
-    if(vkCreateDevice(Viking::VulkanPhysicalDevice::getPhysicalDevice(), &createInfo, nullptr, &m_Device) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create logical device!");
-    }
-
-    vkGetDeviceQueue(m_Device, indicies.graphicsFamily.value(), 0, &m_GraphicsQueue);
-    vkGetDeviceQueue(m_Device, indicies.presentFamily.value(), 0, &m_PresentQueue);
 }
 
 void ExampleLayer::createSwapChain() {
@@ -1125,8 +1074,6 @@ void ExampleLayer::cleanup() const {
     }
 
     vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
-
-    vkDestroyDevice(m_Device, nullptr);
 }
 
 void ExampleLayer::cleanupSwapChain() const {
