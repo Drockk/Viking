@@ -19,7 +19,7 @@ namespace Viking {
 		~VulkanContext() override;
 
 		void init(const std::string& name, GLFWwindow*) override;
-		void onUpdate() const;
+		void onUpdate() const override;
 
 		void* getInstance() override;
 		void* getSurface() override;
@@ -34,7 +34,7 @@ namespace Viking {
 		                                          const VkAllocationCallbacks* pAllocator);
 		void createSurface(GLFWwindow* window);
 
-		VulkanPhysicalDevice m_PhysicalContext;
+		VulkanPhysicalDevice m_PhysicalDevice;
 		Ref<VulkanLogicalDevice> m_LogicalDevice;
 
 		VkInstance m_Instance{ nullptr };

@@ -693,8 +693,8 @@ void ExampleLayer::endSingleTimeCommands(VkCommandBuffer commandBuffer) const {
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
 
-    vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(m_GraphicsQueue);
+    vkQueueSubmit(Viking::VulkanLogicalDevice::getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(Viking::VulkanLogicalDevice::getGraphicsQueue());
 
     vkFreeCommandBuffers(Viking::VulkanLogicalDevice::getDevice(), m_CommandPool, 1, &commandBuffer);
 }
@@ -1134,7 +1134,7 @@ void ExampleLayer::drawFrame() {
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, m_InFlightFences[m_CurrentFrame]) != VK_SUCCESS) {
+    if (vkQueueSubmit(Viking::VulkanLogicalDevice::getGraphicsQueue(), 1, &submitInfo, m_InFlightFences[m_CurrentFrame]) != VK_SUCCESS) {
         throw std::runtime_error("failed to submit draw command buffer!");
     }
 
@@ -1150,7 +1150,7 @@ void ExampleLayer::drawFrame() {
 
     presentInfo.pImageIndices = &imageIndex;
 
-    result = vkQueuePresentKHR(m_PresentQueue, &presentInfo);
+    result = vkQueuePresentKHR(Viking::VulkanLogicalDevice::getPresentQueue(), &presentInfo);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_FramebufferResized) {
         m_FramebufferResized = false;

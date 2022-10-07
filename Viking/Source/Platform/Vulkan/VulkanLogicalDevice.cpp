@@ -59,6 +59,14 @@ namespace Viking {
 		return m_Device;
 	}
 
+	VkQueue VulkanLogicalDevice::getGraphicsQueue() {
+		return m_GraphicsQueue;
+	}
+
+	VkQueue VulkanLogicalDevice::getPresentQueue() {
+		return m_PresentQueue;
+	}
+
 	void VulkanLogicalDevice::onUpdate() const {
 		vkDeviceWaitIdle(m_Device);
 	}

@@ -14,12 +14,14 @@ namespace Viking {
 
 		//Temporary
 		static VkDevice getDevice();
+		static VkQueue getGraphicsQueue();
+		static VkQueue getPresentQueue();
 
 		void onUpdate() const;
 	private:
 		inline static VkDevice m_Device{ nullptr };
 
-		VkQueue m_GraphicsQueue{ nullptr };
-		VkQueue m_PresentQueue{ nullptr };
+		inline static VkQueue m_GraphicsQueue{ nullptr };
+		inline static VkQueue m_PresentQueue{ nullptr };
 	};
 }

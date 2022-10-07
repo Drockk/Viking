@@ -55,9 +55,10 @@ namespace Viking {
 
         createSurface(window);
 
-        m_PhysicalContext.init(m_Instance, m_Surface);
+        m_PhysicalDevice.init(m_Instance, m_Surface);
 
         m_LogicalDevice = createRef<VulkanLogicalDevice>();
+        m_LogicalDevice->init(m_PhysicalDevice);
     }
 
     void VulkanContext::onUpdate() const {

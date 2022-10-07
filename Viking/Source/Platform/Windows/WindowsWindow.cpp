@@ -131,6 +131,8 @@ namespace Viking {
     }
 
     void WindowsWindow::onUpdate() {
+        m_Context->onUpdate();
+
         glfwPollEvents();
     }
 

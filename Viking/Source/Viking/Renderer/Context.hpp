@@ -9,6 +9,8 @@ namespace Viking {
 		virtual ~Context() = default;
 		virtual void init(const std::string& name, GLFWwindow*) = 0;
 
+		virtual void onUpdate() const = 0;
+
 		virtual void* getInstance() = 0;
 		virtual void* getSurface() = 0;
 
