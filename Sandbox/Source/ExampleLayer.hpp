@@ -127,9 +127,6 @@ private:
 
     Viking::Scope<Viking::Context> m_Instance;
 
-    VkQueue m_GraphicsQueue{ nullptr };
-    VkQueue m_PresentQueue{ nullptr };
-
     VkSwapchainKHR m_SwapChain{ nullptr };
     std::vector<VkImage> m_SwapChainImages;
     VkFormat m_SwapChainImageFormat{ VK_FORMAT_UNDEFINED };

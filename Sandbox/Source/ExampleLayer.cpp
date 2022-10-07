@@ -98,13 +98,13 @@ void ExampleLayer::createSwapChain() {
     createInfo.presentMode = presentMode;
     createInfo.clipped = VK_TRUE;
 
-    if(vkCreateSwapchainKHR(m_Device, &createInfo, nullptr, &m_SwapChain) != VK_SUCCESS) {
+    if(vkCreateSwapchainKHR(Viking::VulkanLogicalDevice::getDevice(), &createInfo, nullptr, &m_SwapChain) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create swap chain!");
     }
 
-    vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &imageCount, nullptr);
+    vkGetSwapchainImagesKHR(Viking::VulkanLogicalDevice::getDevice(), m_SwapChain, &imageCount, nullptr);
     m_SwapChainImages.resize(imageCount);
-    vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &imageCount, m_SwapChainImages.data());
+    vkGetSwapchainImagesKHR(Viking::VulkanLogicalDevice::getDevice(), m_SwapChain, &imageCount, m_SwapChainImages.data());
 
     m_SwapChainImageFormat = surfaceFormat.format;
     m_SwapChainExtent = extent;
@@ -171,7 +171,7 @@ VkImageView ExampleLayer::createImageView(VkImage image, VkFormat format, VkImag
     viewInfo.subresourceRange.layerCount = 1;
 
     VkImageView imageView;
-    if (vkCreateImageView(m_Device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
+    if (vkCreateImageView(Viking::VulkanLogicalDevice::getDevice(), &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
         throw std::runtime_error("failed to create texture image view!");
     }
 
@@ -246,7 +246,7 @@ void ExampleLayer::createRenderPass() {
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies = &dependency;
 
-    if (vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_RenderPass) != VK_SUCCESS) {
+    if (vkCreateRenderPass(Viking::VulkanLogicalDevice::getDevice(), &renderPassInfo, nullptr, &m_RenderPass) != VK_SUCCESS) {
         throw std::runtime_error("failed to create render pass!");
     }
 }
@@ -294,7 +294,7 @@ void ExampleLayer::createDescriptorSetLayout() {
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
     layoutInfo.pBindings = bindings.data();
 
-    if (vkCreateDescriptorSetLayout(m_Device, &layoutInfo, nullptr, &m_DescriptorSetLayout) != VK_SUCCESS) {
+    if (vkCreateDescriptorSetLayout(Viking::VulkanLogicalDevice::getDevice(), &layoutInfo, nullptr, &m_DescriptorSetLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor set layout!");
     }
 }
@@ -393,7 +393,7 @@ void ExampleLayer::createGraphicsPipeline() {
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = &m_DescriptorSetLayout;
 
-    if (vkCreatePipelineLayout(m_Device, &pipelineLayoutInfo, nullptr, &m_PipelineLayout) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(Viking::VulkanLogicalDevice::getDevice(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
@@ -414,12 +414,12 @@ void ExampleLayer::createGraphicsPipeline() {
     pipelineInfo.subpass = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-    if (vkCreateGraphicsPipelines(m_Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_GraphicsPipeline) != VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(Viking::VulkanLogicalDevice::getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_GraphicsPipeline) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
 
-    vkDestroyShaderModule(m_Device, fragShaderModule, nullptr);
-    vkDestroyShaderModule(m_Device, vertShaderModule, nullptr);
+    vkDestroyShaderModule(Viking::VulkanLogicalDevice::getDevice(), fragShaderModule, nullptr);
+    vkDestroyShaderModule(Viking::VulkanLogicalDevice::getDevice(), vertShaderModule, nullptr);
 }
 
 void ExampleLayer::createCommandPool() {
@@ -430,7 +430,7 @@ void ExampleLayer::createCommandPool() {
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
 
-    if(vkCreateCommandPool(m_Device, &poolInfo, nullptr, &m_CommandPool) != VK_SUCCESS) {
+    if(vkCreateCommandPool(Viking::VulkanLogicalDevice::getDevice(), &poolInfo, nullptr, &m_CommandPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics command pool!");
     }
 }
@@ -468,7 +468,7 @@ void ExampleLayer::createFramebuffers() {
         framebufferInfo.height = m_SwapChainExtent.height;
         framebufferInfo.layers = 1;
 
-        if (vkCreateFramebuffer(m_Device, &framebufferInfo, nullptr, &m_SwapChainFramebuffers[i]) != VK_SUCCESS) {
+        if (vkCreateFramebuffer(Viking::VulkanLogicalDevice::getDevice(), &framebufferInfo, nullptr, &m_SwapChainFramebuffers[i]) != VK_SUCCESS) {
             throw std::runtime_error("failed to create framebuffer!");
         }
     }
@@ -489,9 +489,9 @@ void ExampleLayer::createTextureImage() {
     createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
     void* data;
-    vkMapMemory(m_Device, stagingBufferMemory, 0, imageSize, 0, &data);
+    vkMapMemory(Viking::VulkanLogicalDevice::getDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
     memcpy(data, pixels, imageSize);
-    vkUnmapMemory(m_Device, stagingBufferMemory);
+    vkUnmapMemory(Viking::VulkanLogicalDevice::getDevice(), stagingBufferMemory);
 
     stbi_image_free(pixels);
 
@@ -501,8 +501,8 @@ void ExampleLayer::createTextureImage() {
     copyBufferToImage(stagingBuffer, m_TextureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
     //transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
 
-    vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-    vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
+    vkDestroyBuffer(Viking::VulkanLogicalDevice::getDevice(), stagingBuffer, nullptr);
+    vkFreeMemory(Viking::VulkanLogicalDevice::getDevice(), stagingBufferMemory, nullptr);
 
     generateMipmaps(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, m_MipLevels);
 }
@@ -532,7 +532,7 @@ VkShaderModule ExampleLayer::createShaderModule(const std::vector<char>& code) c
     createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
     VkShaderModule shaderModule;
-    if (vkCreateShaderModule(m_Device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+    if (vkCreateShaderModule(Viking::VulkanLogicalDevice::getDevice(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
         throw std::runtime_error("failed to create shader module!");
     }
 
@@ -557,23 +557,23 @@ void ExampleLayer::createImage(uint32_t width, uint32_t height, uint32_t mipLeve
     imageInfo.samples = numSamples;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (vkCreateImage(m_Device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
+    if (vkCreateImage(Viking::VulkanLogicalDevice::getDevice(), &imageInfo, nullptr, &image) != VK_SUCCESS) {
         throw std::runtime_error("failed to create image!");
     }
 
     VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(m_Device, image, &memRequirements);
+    vkGetImageMemoryRequirements(Viking::VulkanLogicalDevice::getDevice(), image, &memRequirements);
 
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-    if (vkAllocateMemory(m_Device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+    if (vkAllocateMemory(Viking::VulkanLogicalDevice::getDevice(), &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate image memory!");
     }
 
-    vkBindImageMemory(m_Device, image, imageMemory, 0);
+    vkBindImageMemory(Viking::VulkanLogicalDevice::getDevice(), image, imageMemory, 0);
 }
 
 uint32_t ExampleLayer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
@@ -597,23 +597,23 @@ void ExampleLayer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkM
     bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (vkCreateBuffer(m_Device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+    if (vkCreateBuffer(Viking::VulkanLogicalDevice::getDevice(), &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to create buffer!");
     }
 
     VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(m_Device, buffer, &memRequirements);
+    vkGetBufferMemoryRequirements(Viking::VulkanLogicalDevice::getDevice(), buffer, &memRequirements);
 
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-    if (vkAllocateMemory(m_Device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+    if (vkAllocateMemory(Viking::VulkanLogicalDevice::getDevice(), &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate buffer memory!");
     }
 
-    vkBindBufferMemory(m_Device, buffer, bufferMemory, 0);
+    vkBindBufferMemory(Viking::VulkanLogicalDevice::getDevice(), buffer, bufferMemory, 0);
 }
 
 void ExampleLayer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
@@ -674,7 +674,7 @@ VkCommandBuffer ExampleLayer::beginSingleTimeCommands() const {
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(m_Device, &allocInfo, &commandBuffer);
+    vkAllocateCommandBuffers(Viking::VulkanLogicalDevice::getDevice(), &allocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -696,7 +696,7 @@ void ExampleLayer::endSingleTimeCommands(VkCommandBuffer commandBuffer) const {
     vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(m_GraphicsQueue);
 
-    vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &commandBuffer);
+    vkFreeCommandBuffers(Viking::VulkanLogicalDevice::getDevice(), m_CommandPool, 1, &commandBuffer);
 }
 
 void ExampleLayer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const {
@@ -835,7 +835,7 @@ void ExampleLayer::createTextureSampler() {
     samplerInfo.maxLod = static_cast<float>(m_MipLevels);
     samplerInfo.mipLodBias = 0.0f;
 
-    if (vkCreateSampler(m_Device, &samplerInfo, nullptr, &m_TextureSampler) != VK_SUCCESS) {
+    if (vkCreateSampler(Viking::VulkanLogicalDevice::getDevice(), &samplerInfo, nullptr, &m_TextureSampler) != VK_SUCCESS) {
         throw std::runtime_error("failed to create texture sampler!");
     }
 }
@@ -888,16 +888,16 @@ void ExampleLayer::createVertexBuffer() {
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
     void* data;
-    vkMapMemory(m_Device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vkMapMemory(Viking::VulkanLogicalDevice::getDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
     memcpy(data, m_Vertices.data(), bufferSize);
-    vkUnmapMemory(m_Device, stagingBufferMemory);
+    vkUnmapMemory(Viking::VulkanLogicalDevice::getDevice(), stagingBufferMemory);
 
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_VertexBuffer, m_VertexBufferMemory);
 
     copyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
 
-    vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-    vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
+    vkDestroyBuffer(Viking::VulkanLogicalDevice::getDevice(), stagingBuffer, nullptr);
+    vkFreeMemory(Viking::VulkanLogicalDevice::getDevice(), stagingBufferMemory, nullptr);
 }
 
 void ExampleLayer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const {
@@ -918,16 +918,16 @@ void ExampleLayer::createIndexBuffer() {
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
     void* data;
-    vkMapMemory(m_Device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vkMapMemory(Viking::VulkanLogicalDevice::getDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
     memcpy(data, m_Indices.data(), bufferSize);
-    vkUnmapMemory(m_Device, stagingBufferMemory);
+    vkUnmapMemory(Viking::VulkanLogicalDevice::getDevice(), stagingBufferMemory);
 
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_IndexBuffer, m_IndexBufferMemory);
 
     copyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
 
-    vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-    vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
+    vkDestroyBuffer(Viking::VulkanLogicalDevice::getDevice(), stagingBuffer, nullptr);
+    vkFreeMemory(Viking::VulkanLogicalDevice::getDevice(), stagingBufferMemory, nullptr);
 }
 
 void ExampleLayer::createUniformBuffers() {
@@ -953,7 +953,7 @@ void ExampleLayer::createDescriptorPool() {
     poolInfo.pPoolSizes = poolSizes.data();
     poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-    if (vkCreateDescriptorPool(m_Device, &poolInfo, nullptr, &m_DescriptorPool) != VK_SUCCESS) {
+    if (vkCreateDescriptorPool(Viking::VulkanLogicalDevice::getDevice(), &poolInfo, nullptr, &m_DescriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor pool!");
     }
 }
@@ -967,7 +967,7 @@ void ExampleLayer::createDescriptorSets() {
     allocInfo.pSetLayouts = layouts.data();
 
     m_DescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    if (vkAllocateDescriptorSets(m_Device, &allocInfo, m_DescriptorSets.data()) != VK_SUCCESS) {
+    if (vkAllocateDescriptorSets(Viking::VulkanLogicalDevice::getDevice(), &allocInfo, m_DescriptorSets.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
 
@@ -1000,7 +1000,7 @@ void ExampleLayer::createDescriptorSets() {
         descriptorWrites[1].descriptorCount = 1;
         descriptorWrites[1].pImageInfo = &imageInfo;
 
-        vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+        vkUpdateDescriptorSets(Viking::VulkanLogicalDevice::getDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
 }
 
@@ -1013,7 +1013,7 @@ void ExampleLayer::createCommandBuffers() {
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = static_cast<uint32_t>(m_CommandBuffers.size());
 
-    if (vkAllocateCommandBuffers(m_Device, &allocInfo, m_CommandBuffers.data()) != VK_SUCCESS) {
+    if (vkAllocateCommandBuffers(Viking::VulkanLogicalDevice::getDevice(), &allocInfo, m_CommandBuffers.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate command buffers!");
     }
 }
@@ -1031,9 +1031,9 @@ void ExampleLayer::createSyncObjects() {
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        if (vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_ImageAvailableSemaphores[i]) != VK_SUCCESS ||
-            vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_RenderFinishedSemaphores[i]) != VK_SUCCESS ||
-            vkCreateFence(m_Device, &fenceInfo, nullptr, &m_InFlightFences[i]) != VK_SUCCESS) {
+        if (vkCreateSemaphore(Viking::VulkanLogicalDevice::getDevice(), &semaphoreInfo, nullptr, &m_ImageAvailableSemaphores[i]) != VK_SUCCESS ||
+            vkCreateSemaphore(Viking::VulkanLogicalDevice::getDevice(), &semaphoreInfo, nullptr, &m_RenderFinishedSemaphores[i]) != VK_SUCCESS ||
+            vkCreateFence(Viking::VulkanLogicalDevice::getDevice(), &fenceInfo, nullptr, &m_InFlightFences[i]) != VK_SUCCESS) {
             throw std::runtime_error("failed to create synchronization objects for a frame!");
         }
     }
@@ -1042,65 +1042,65 @@ void ExampleLayer::createSyncObjects() {
 void ExampleLayer::cleanup() const {
     cleanupSwapChain();
 
-    vkDestroyPipeline(m_Device, m_GraphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(m_Device, m_PipelineLayout, nullptr);
-    vkDestroyRenderPass(m_Device, m_RenderPass, nullptr);
+    vkDestroyPipeline(Viking::VulkanLogicalDevice::getDevice(), m_GraphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(Viking::VulkanLogicalDevice::getDevice(), m_PipelineLayout, nullptr);
+    vkDestroyRenderPass(Viking::VulkanLogicalDevice::getDevice(), m_RenderPass, nullptr);
 
     for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vkDestroyBuffer(m_Device, m_UniformBuffers[i], nullptr);
-        vkFreeMemory(m_Device, m_UniformBuffersMemory[i], nullptr);
+        vkDestroyBuffer(Viking::VulkanLogicalDevice::getDevice(), m_UniformBuffers[i], nullptr);
+        vkFreeMemory(Viking::VulkanLogicalDevice::getDevice(), m_UniformBuffersMemory[i], nullptr);
     }
 
-    vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
+    vkDestroyDescriptorPool(Viking::VulkanLogicalDevice::getDevice(), m_DescriptorPool, nullptr);
 
-    vkDestroySampler(m_Device, m_TextureSampler, nullptr);
-    vkDestroyImageView(m_Device, m_TextureImageView, nullptr);
+    vkDestroySampler(Viking::VulkanLogicalDevice::getDevice(), m_TextureSampler, nullptr);
+    vkDestroyImageView(Viking::VulkanLogicalDevice::getDevice(), m_TextureImageView, nullptr);
 
-    vkDestroyImage(m_Device, m_TextureImage, nullptr);
-    vkFreeMemory(m_Device, m_TextureImageMemory, nullptr);
+    vkDestroyImage(Viking::VulkanLogicalDevice::getDevice(), m_TextureImage, nullptr);
+    vkFreeMemory(Viking::VulkanLogicalDevice::getDevice(), m_TextureImageMemory, nullptr);
 
-    vkDestroyDescriptorSetLayout(m_Device, m_DescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(Viking::VulkanLogicalDevice::getDevice(), m_DescriptorSetLayout, nullptr);
 
-    vkDestroyBuffer(m_Device, m_IndexBuffer, nullptr);
-    vkFreeMemory(m_Device, m_IndexBufferMemory, nullptr);
+    vkDestroyBuffer(Viking::VulkanLogicalDevice::getDevice(), m_IndexBuffer, nullptr);
+    vkFreeMemory(Viking::VulkanLogicalDevice::getDevice(), m_IndexBufferMemory, nullptr);
 
-    vkDestroyBuffer(m_Device, m_VertexBuffer, nullptr);
-    vkFreeMemory(m_Device, m_VertexBufferMemory, nullptr);
+    vkDestroyBuffer(Viking::VulkanLogicalDevice::getDevice(), m_VertexBuffer, nullptr);
+    vkFreeMemory(Viking::VulkanLogicalDevice::getDevice(), m_VertexBufferMemory, nullptr);
 
     for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vkDestroySemaphore(m_Device, m_RenderFinishedSemaphores[i], nullptr);
-        vkDestroySemaphore(m_Device, m_ImageAvailableSemaphores[i], nullptr);
-        vkDestroyFence(m_Device, m_InFlightFences[i], nullptr);
+        vkDestroySemaphore(Viking::VulkanLogicalDevice::getDevice(), m_RenderFinishedSemaphores[i], nullptr);
+        vkDestroySemaphore(Viking::VulkanLogicalDevice::getDevice(), m_ImageAvailableSemaphores[i], nullptr);
+        vkDestroyFence(Viking::VulkanLogicalDevice::getDevice(), m_InFlightFences[i], nullptr);
     }
 
-    vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
+    vkDestroyCommandPool(Viking::VulkanLogicalDevice::getDevice(), m_CommandPool, nullptr);
 }
 
 void ExampleLayer::cleanupSwapChain() const {
-    vkDestroyImageView(m_Device, m_DepthImageView, nullptr);
-    vkDestroyImage(m_Device, m_DepthImage, nullptr);
-    vkFreeMemory(m_Device, m_DepthImageMemory, nullptr);
+    vkDestroyImageView(Viking::VulkanLogicalDevice::getDevice(), m_DepthImageView, nullptr);
+    vkDestroyImage(Viking::VulkanLogicalDevice::getDevice(), m_DepthImage, nullptr);
+    vkFreeMemory(Viking::VulkanLogicalDevice::getDevice(), m_DepthImageMemory, nullptr);
 
-    vkDestroyImageView(m_Device, m_ColorImageView, nullptr);
-    vkDestroyImage(m_Device, m_ColorImage, nullptr);
-    vkFreeMemory(m_Device, m_ColorImageMemory, nullptr);
+    vkDestroyImageView(Viking::VulkanLogicalDevice::getDevice(), m_ColorImageView, nullptr);
+    vkDestroyImage(Viking::VulkanLogicalDevice::getDevice(), m_ColorImage, nullptr);
+    vkFreeMemory(Viking::VulkanLogicalDevice::getDevice(), m_ColorImageMemory, nullptr);
 
     for (const auto framebuffer : m_SwapChainFramebuffers) {
-        vkDestroyFramebuffer(m_Device, framebuffer, nullptr);
+        vkDestroyFramebuffer(Viking::VulkanLogicalDevice::getDevice(), framebuffer, nullptr);
     }
 
     for (const auto imageView : m_SwapChainImageViews) {
-        vkDestroyImageView(m_Device, imageView, nullptr);
+        vkDestroyImageView(Viking::VulkanLogicalDevice::getDevice(), imageView, nullptr);
     }
 
-    vkDestroySwapchainKHR(m_Device, m_SwapChain, nullptr);
+    vkDestroySwapchainKHR(Viking::VulkanLogicalDevice::getDevice(), m_SwapChain, nullptr);
 }
 
 void ExampleLayer::drawFrame() {
-    vkWaitForFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
+    vkWaitForFences(Viking::VulkanLogicalDevice::getDevice(), 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex;
-    auto result = vkAcquireNextImageKHR(m_Device, m_SwapChain, UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
+    auto result = vkAcquireNextImageKHR(Viking::VulkanLogicalDevice::getDevice(), m_SwapChain, UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         recreateSwapChain();
@@ -1113,7 +1113,7 @@ void ExampleLayer::drawFrame() {
 
     updateUniformBuffer(m_CurrentFrame);
 
-    vkResetFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame]);
+    vkResetFences(Viking::VulkanLogicalDevice::getDevice(), 1, &m_InFlightFences[m_CurrentFrame]);
 
     vkResetCommandBuffer(m_CommandBuffers[m_CurrentFrame], 0);
     recordCommandBuffer(m_CommandBuffers[m_CurrentFrame], imageIndex);
@@ -1171,7 +1171,7 @@ void ExampleLayer::recreateSwapChain() {
         glfwWaitEvents();
     }
 
-    vkDeviceWaitIdle(m_Device);
+    vkDeviceWaitIdle(Viking::VulkanLogicalDevice::getDevice());
 
     cleanupSwapChain();
 
@@ -1195,9 +1195,9 @@ void ExampleLayer::updateUniformBuffer(uint32_t currentImage) const {
     ubo.proj[1][1] *= -1;
 
     void* data;
-    vkMapMemory(m_Device, m_UniformBuffersMemory[currentImage], 0, sizeof ubo, 0, &data);
+    vkMapMemory(Viking::VulkanLogicalDevice::getDevice(), m_UniformBuffersMemory[currentImage], 0, sizeof ubo, 0, &data);
     memcpy(data, &ubo, sizeof ubo);
-    vkUnmapMemory(m_Device, m_UniformBuffersMemory[currentImage]);
+    vkUnmapMemory(Viking::VulkanLogicalDevice::getDevice(), m_UniformBuffersMemory[currentImage]);
 }
 
 void ExampleLayer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) const {
