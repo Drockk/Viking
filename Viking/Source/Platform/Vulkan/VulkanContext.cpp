@@ -4,10 +4,6 @@
 
 #include "GLFW/glfw3.h"
 
-const std::vector VALIDATION_LAYERS = {
-    "VK_LAYER_KHRONOS_validation"
-};
-
 namespace Viking {
 
     VulkanContext::~VulkanContext() {
@@ -59,7 +55,14 @@ namespace Viking {
 
         createSurface(window);
 
-        m_PhysicalContext.init(m_Instance, m_Surface);
+        m_PhysicalDevice.init(m_Instance, m_Surface);
+
+        m_LogicalDevice = createRef<VulkanLogicalDevice>();
+        m_LogicalDevice->init(m_PhysicalDevice);
+    }
+
+    void VulkanContext::onUpdate() const {
+        m_LogicalDevice->onUpdate();
     }
 
     void* VulkanContext::getInstance() {

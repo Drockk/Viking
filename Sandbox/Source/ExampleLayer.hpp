@@ -75,7 +75,6 @@ private:
     void initVulkan();
 
     //Init Vulkan Methods
-    void createLogicalDevice();
     void createSwapChain();
     static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
     static VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
@@ -127,11 +126,6 @@ private:
     bool m_FramebufferResized{ false };
 
     Viking::Scope<Viking::Context> m_Instance;
-
-    VkDevice m_Device{ nullptr };
-
-    VkQueue m_GraphicsQueue{ nullptr };
-    VkQueue m_PresentQueue{ nullptr };
 
     VkSwapchainKHR m_SwapChain{ nullptr };
     std::vector<VkImage> m_SwapChainImages;

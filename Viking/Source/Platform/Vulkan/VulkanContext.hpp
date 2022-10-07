@@ -3,10 +3,14 @@
 #include "Viking/Renderer/Context.hpp"
 
 #include "Platform/Vulkan/VulkanPhysicalDevice.hpp"
+#include "Platform/Vulkan/VulkanLogicalDevice.hpp"
 
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
 
+const std::vector VALIDATION_LAYERS = {
+    "VK_LAYER_KHRONOS_validation"
+};
 
 namespace Viking {
 	class VulkanContext: public Context {
@@ -15,9 +19,10 @@ namespace Viking {
 		~VulkanContext() override;
 
 		void init(const std::string& name, GLFWwindow*) override;
+		void onUpdate() const override;
+
 		void* getInstance() override;
 		void* getSurface() override;
-
 	private:
 		static bool checkValidationLayerSupport();
 		static std::vector<const char*> getRequiredExtensions();
@@ -29,7 +34,8 @@ namespace Viking {
 		                                          const VkAllocationCallbacks* pAllocator);
 		void createSurface(GLFWwindow* window);
 
-		VulkanPhysicalDevice m_PhysicalContext;
+		VulkanPhysicalDevice m_PhysicalDevice;
+		Ref<VulkanLogicalDevice> m_LogicalDevice;
 
 		VkInstance m_Instance{ nullptr };
 		VkDebugUtilsMessengerEXT m_DebugMessenger{ nullptr };
