@@ -55,10 +55,14 @@ namespace Viking {
 
         createSurface(window);
 
-        m_PhysicalDevice.init(m_Instance, m_Surface);
+        m_PhysicalDevice = createRef<VulkanPhysicalDevice>();
+        m_PhysicalDevice->init(m_Instance, m_Surface);
 
         m_LogicalDevice = createRef<VulkanLogicalDevice>();
         m_LogicalDevice->init(m_PhysicalDevice);
+
+        m_Swapchain = createRef<VulkanSwapchain>();
+        m_Swapchain->init(m_PhysicalDevice, m_Surface, m_LogicalDevice, window);
     }
 
     void VulkanContext::onUpdate() const {

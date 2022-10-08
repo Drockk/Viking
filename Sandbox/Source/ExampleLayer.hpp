@@ -75,12 +75,6 @@ private:
     void initVulkan();
 
     //Init Vulkan Methods
-    void createSwapChain();
-    static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-    static VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
-    [[nodiscard]] VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) const;
-    void createImageViews();
-    VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels) const;
     void createRenderPass();
     static VkFormat findDepthFormat();
     [[nodiscard]] static VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
@@ -127,11 +121,6 @@ private:
 
     Viking::Scope<Viking::Context> m_Instance;
 
-    VkSwapchainKHR m_SwapChain{ nullptr };
-    std::vector<VkImage> m_SwapChainImages;
-    VkFormat m_SwapChainImageFormat{ VK_FORMAT_UNDEFINED };
-    VkExtent2D m_SwapChainExtent = { 0, 0 };
-    std::vector<VkImageView> m_SwapChainImageViews;
     std::vector<VkFramebuffer> m_SwapChainFramebuffers;
 
     VkRenderPass m_RenderPass{ nullptr };
