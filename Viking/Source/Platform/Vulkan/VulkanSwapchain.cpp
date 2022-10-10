@@ -4,6 +4,8 @@
 
 namespace Viking {
 
+	std::vector<VkImageView> VulkanSwapchain::m_SwapchainImageViews;
+
 	VulkanSwapchain::~VulkanSwapchain() {
 		if(m_Swapchain != nullptr) {
 			vkDestroySwapchainKHR(m_LogicalDevice->getDevice(), m_Swapchain, nullptr);
@@ -59,6 +61,18 @@ namespace Viking {
 		m_SwapchainExtent = extent;
 
 		m_LogicalDevice = logicalDevice;
+	}
+
+	VkSwapchainKHR VulkanSwapchain::getSwapchain() {
+		return m_Swapchain;
+	}
+
+	VkFormat VulkanSwapchain::getSwapchainImageFormat() {
+		return m_SwapchainImageFormat;
+	}
+
+	VkExtent2D VulkanSwapchain::getSwapchainExtent() {
+		return m_SwapchainExtent;
 	}
 
 	VkSurfaceFormatKHR VulkanSwapchain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
