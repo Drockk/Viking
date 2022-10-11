@@ -15,11 +15,11 @@ namespace Viking {
 		void init(const Ref<VulkanPhysicalDevice>& physicalDevice, VkSurfaceKHR surface, const Ref<VulkanLogicalDevice>& logicalDevice, GLFWwindow* window);
 
 		//Temp
-		static VkSwapchainKHR getSwapchain();
-		static VkFormat getSwapchainImageFormat();
-		static VkExtent2D getSwapchainExtent();
+		[[nodiscard]] VkSwapchainKHR getSwapchain() const;
+		[[nodiscard]] VkFormat getSwapchainImageFormat() const;
+		[[nodiscard]] VkExtent2D getSwapchainExtent() const;
+		[[nodiscard]] std::vector<VkImageView> getSwapchainImagesViews() const;
 
-		static std::vector<VkImageView> m_SwapchainImageViews;
 	private:
 		static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		static VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
@@ -29,9 +29,10 @@ namespace Viking {
 
 		Ref<VulkanLogicalDevice> m_LogicalDevice;
 
-		static inline VkSwapchainKHR m_Swapchain{ nullptr };
+		VkSwapchainKHR m_Swapchain{ nullptr };
 		std::vector<VkImage> m_SwapchainImages;
-		static inline VkFormat m_SwapchainImageFormat{ VK_FORMAT_UNDEFINED };
-		static inline VkExtent2D m_SwapchainExtent = { 0, 0 };
+		VkFormat m_SwapchainImageFormat{ VK_FORMAT_UNDEFINED };
+		VkExtent2D m_SwapchainExtent = { 0, 0 };
+		std::vector<VkImageView> m_SwapchainImageViews;
 	};
 }

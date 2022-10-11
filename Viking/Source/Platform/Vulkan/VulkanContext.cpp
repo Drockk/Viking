@@ -77,6 +77,10 @@ namespace Viking {
         return m_Surface;
     }
 
+    Ref<VulkanSwapchain> VulkanContext::getSwapchain() {
+        return m_Swapchain;
+    }
+
     bool VulkanContext::checkValidationLayerSupport() {
         uint32_t layerCount;
         vkEnumerateInstanceLayerProperties(&layerCount, nullptr);

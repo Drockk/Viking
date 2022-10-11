@@ -62,7 +62,7 @@ void ExampleLayer::initVulkan() {
 
 void ExampleLayer::createRenderPass() {
     VkAttachmentDescription colorAttachment{};
-    colorAttachment.format = Viking::VulkanSwapchain::getSwapchainImageFormat();
+    colorAttachment.format = Viking::VulkanContext::getSwapchain()->getSwapchainImageFormat();
     colorAttachment.samples = Viking::VulkanPhysicalDevice::getMsaaSamples();
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -82,7 +82,7 @@ void ExampleLayer::createRenderPass() {
     depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkAttachmentDescription colorAttachmentResolve{};
-    colorAttachmentResolve.format = Viking::VulkanSwapchain::getSwapchainImageFormat();
+    colorAttachmentResolve.format = Viking::VulkanContext::getSwapchain()->getSwapchainImageFormat();
     colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
     colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -318,27 +318,27 @@ void ExampleLayer::createCommandPool() {
 }
 
 void ExampleLayer::createColorResources() {
-    const auto colorFormat = Viking::VulkanSwapchain::getSwapchainImageFormat();
+    const auto colorFormat = Viking::VulkanContext::getSwapchain()->getSwapchainImageFormat();
 
-    createImage(Viking::VulkanSwapchain::getSwapchainExtent().width, Viking::VulkanSwapchain::getSwapchainExtent().height, 1, Viking::VulkanPhysicalDevice::getMsaaSamples(), colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_ColorImage, m_ColorImageMemory);
+    createImage(Viking::VulkanContext::getSwapchain()->getSwapchainExtent().width, Viking::VulkanContext::getSwapchain()->getSwapchainExtent().height, 1, Viking::VulkanPhysicalDevice::getMsaaSamples(), colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_ColorImage, m_ColorImageMemory);
     m_ColorImageView = Viking::VulkanLogicalDevice::createImageView(m_ColorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }
 
 void ExampleLayer::createDepthResources() {
     const auto depthFormat = findDepthFormat();
 
-    createImage(Viking::VulkanSwapchain::getSwapchainExtent().width, Viking::VulkanSwapchain::getSwapchainExtent().height, 1, Viking::VulkanPhysicalDevice::getMsaaSamples(), depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
+    createImage(Viking::VulkanContext::getSwapchain()->getSwapchainExtent().width, Viking::VulkanContext::getSwapchain()->getSwapchainExtent().height, 1, Viking::VulkanPhysicalDevice::getMsaaSamples(), depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
     m_DepthImageView = Viking::VulkanLogicalDevice::createImageView(m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
 }
 
 void ExampleLayer::createFramebuffers() {
-    m_SwapChainFramebuffers.resize(Viking::VulkanSwapchain::m_SwapchainImageViews.size());
+    m_SwapChainFramebuffers.resize(Viking::VulkanContext::getSwapchain()->getSwapchainImagesViews().size());
 
-    for (auto i = 0; i < Viking::VulkanSwapchain::m_SwapchainImageViews.size(); i++) {
+    for (auto i = 0; i < Viking::VulkanContext::getSwapchain()->getSwapchainImagesViews().size(); i++) {
         std::array<VkImageView, 3> attachments = {
             m_ColorImageView,
             m_DepthImageView,
-            Viking::VulkanSwapchain::m_SwapchainImageViews[i]
+            Viking::VulkanContext::getSwapchain()->getSwapchainImagesViews()[i]
         };
 
         VkFramebufferCreateInfo framebufferInfo{};
@@ -346,8 +346,8 @@ void ExampleLayer::createFramebuffers() {
         framebufferInfo.renderPass = m_RenderPass;
         framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
         framebufferInfo.pAttachments = attachments.data();
-        framebufferInfo.width = Viking::VulkanSwapchain::getSwapchainExtent().width;
-        framebufferInfo.height = Viking::VulkanSwapchain::getSwapchainExtent().height;
+        framebufferInfo.width = Viking::VulkanContext::getSwapchain()->getSwapchainExtent().width;
+        framebufferInfo.height = Viking::VulkanContext::getSwapchain()->getSwapchainExtent().height;
         framebufferInfo.layers = 1;
 
         if (vkCreateFramebuffer(Viking::VulkanLogicalDevice::getDevice(), &framebufferInfo, nullptr, &m_SwapChainFramebuffers[i]) != VK_SUCCESS) {
@@ -971,7 +971,7 @@ void ExampleLayer::cleanupSwapChain() const {
         vkDestroyFramebuffer(Viking::VulkanLogicalDevice::getDevice(), framebuffer, nullptr);
     }
 
-    for (const auto imageView : Viking::VulkanSwapchain::m_SwapchainImageViews) {
+    for (const auto imageView : Viking::VulkanContext::getSwapchain()->getSwapchainImagesViews()) {
         vkDestroyImageView(Viking::VulkanLogicalDevice::getDevice(), imageView, nullptr);
     }
 }
@@ -980,7 +980,7 @@ void ExampleLayer::drawFrame() {
     vkWaitForFences(Viking::VulkanLogicalDevice::getDevice(), 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex;
-    auto result = vkAcquireNextImageKHR(Viking::VulkanLogicalDevice::getDevice(), Viking::VulkanSwapchain::getSwapchain(), UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
+    auto result = vkAcquireNextImageKHR(Viking::VulkanLogicalDevice::getDevice(), Viking::VulkanContext::getSwapchain()->getSwapchain(), UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         recreateSwapChain();
@@ -1024,7 +1024,7 @@ void ExampleLayer::drawFrame() {
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pWaitSemaphores = signalSemaphores;
 
-    const VkSwapchainKHR swapChains[] = { Viking::VulkanSwapchain::getSwapchain() };
+    const VkSwapchainKHR swapChains[] = { Viking::VulkanContext::getSwapchain()->getSwapchain() };
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = swapChains;
 
@@ -1071,7 +1071,7 @@ void ExampleLayer::updateUniformBuffer(uint32_t currentImage) const {
     UniformBufferObject ubo;
     ubo.model = rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(Viking::VulkanSwapchain::getSwapchainExtent().width) / static_cast<float>(Viking::VulkanSwapchain::getSwapchainExtent().height), 0.1f, 10.0f);
+    ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(Viking::VulkanContext::getSwapchain()->getSwapchainExtent().width) / static_cast<float>(Viking::VulkanContext::getSwapchain()->getSwapchainExtent().height), 0.1f, 10.0f);
     ubo.proj[1][1] *= -1;
 
     void* data;
@@ -1093,7 +1093,7 @@ void ExampleLayer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t i
     renderPassInfo.renderPass = m_RenderPass;
     renderPassInfo.framebuffer = m_SwapChainFramebuffers[imageIndex];
     renderPassInfo.renderArea.offset = { 0, 0 };
-    renderPassInfo.renderArea.extent = Viking::VulkanSwapchain::getSwapchainExtent();
+    renderPassInfo.renderArea.extent = Viking::VulkanContext::getSwapchain()->getSwapchainExtent();
 
     std::array<VkClearValue, 2> clearValues{};
     clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
@@ -1109,15 +1109,15 @@ void ExampleLayer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t i
     VkViewport viewport;
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = static_cast<float>(Viking::VulkanSwapchain::getSwapchainExtent().width);
-    viewport.height = static_cast<float>(Viking::VulkanSwapchain::getSwapchainExtent().height);
+    viewport.width = static_cast<float>(Viking::VulkanContext::getSwapchain()->getSwapchainExtent().width);
+    viewport.height = static_cast<float>(Viking::VulkanContext::getSwapchain()->getSwapchainExtent().height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
     VkRect2D scissor;
     scissor.offset = { 0, 0 };
-    scissor.extent = Viking::VulkanSwapchain::getSwapchainExtent();
+    scissor.extent = Viking::VulkanContext::getSwapchain()->getSwapchainExtent();
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     const VkBuffer vertexBuffers[] = { m_VertexBuffer };

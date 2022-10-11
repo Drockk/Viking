@@ -24,6 +24,8 @@ namespace Viking {
 
 		void* getInstance() override;
 		void* getSurface() override;
+
+		static Ref<VulkanSwapchain> getSwapchain();
 	private:
 		static bool checkValidationLayerSupport();
 		static std::vector<const char*> getRequiredExtensions();
@@ -37,7 +39,7 @@ namespace Viking {
 
 		Ref<VulkanPhysicalDevice> m_PhysicalDevice;
 		Ref<VulkanLogicalDevice> m_LogicalDevice;
-		Ref<VulkanSwapchain> m_Swapchain;
+		static inline Ref<VulkanSwapchain> m_Swapchain;
 
 		VkInstance m_Instance{ nullptr };
 		VkDebugUtilsMessengerEXT m_DebugMessenger{ nullptr };
