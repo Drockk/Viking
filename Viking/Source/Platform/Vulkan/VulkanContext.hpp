@@ -4,6 +4,7 @@
 
 #include "Platform/Vulkan/VulkanPhysicalDevice.hpp"
 #include "Platform/Vulkan/VulkanLogicalDevice.hpp"
+#include "Platform/Vulkan/VulkanSwapchain.hpp"
 
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
@@ -18,11 +19,13 @@ namespace Viking {
 		VulkanContext() = default;
 		~VulkanContext() override;
 
-		void init(const std::string& name, GLFWwindow*) override;
+		void init(const std::string& name, GLFWwindow* window) override;
 		void onUpdate() const override;
 
 		void* getInstance() override;
 		void* getSurface() override;
+
+		static Ref<VulkanSwapchain> getSwapchain();
 	private:
 		static bool checkValidationLayerSupport();
 		static std::vector<const char*> getRequiredExtensions();
@@ -34,8 +37,9 @@ namespace Viking {
 		                                          const VkAllocationCallbacks* pAllocator);
 		void createSurface(GLFWwindow* window);
 
-		VulkanPhysicalDevice m_PhysicalDevice;
+		Ref<VulkanPhysicalDevice> m_PhysicalDevice;
 		Ref<VulkanLogicalDevice> m_LogicalDevice;
+		static inline Ref<VulkanSwapchain> m_Swapchain;
 
 		VkInstance m_Instance{ nullptr };
 		VkDebugUtilsMessengerEXT m_DebugMessenger{ nullptr };

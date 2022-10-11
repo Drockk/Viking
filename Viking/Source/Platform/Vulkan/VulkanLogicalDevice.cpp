@@ -12,8 +12,8 @@ namespace Viking {
 		}
 	}
 
-	void VulkanLogicalDevice::init(VulkanPhysicalDevice device) {
-		auto [graphicsFamily, presentFamily] = device.getQueueFamilyIndices();
+	void VulkanLogicalDevice::init(Ref<VulkanPhysicalDevice> device) {
+		auto [graphicsFamily, presentFamily] = device->getQueueFamilyIndices();
 
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 		std::set uniqueQueueFamilies = { graphicsFamily.value(), presentFamily.value() };
@@ -47,7 +47,7 @@ namespace Viking {
 			createInfo.enabledLayerCount = 0;
 		}
 
-		if (vkCreateDevice(device.getPhysicalDevice(), &createInfo, nullptr, &m_Device) != VK_SUCCESS) {
+		if (vkCreateDevice(device->getPhysicalDevice(), &createInfo, nullptr, &m_Device) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create logical device!");
 		}
 
@@ -67,7 +67,27 @@ namespace Viking {
 		return m_PresentQueue;
 	}
 
-	void VulkanLogicalDevice::onUpdate() const {
+	void VulkanLogicalDevice::onUpdate() {
 		vkDeviceWaitIdle(m_Device);
+	}
+
+	VkImageView VulkanLogicalDevice::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
+		uint32_t mipLevels) {
+		VkImageViewCreateInfo viewInfo{};
+		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewInfo.image = image;
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.format = format;
+		viewInfo.subresourceRange.aspectMask = aspectFlags;
+		viewInfo.subresourceRange.baseMipLevel = 0;
+		viewInfo.subresourceRange.levelCount = mipLevels;
+		viewInfo.subresourceRange.baseArrayLayer = 0;
+		viewInfo.subresourceRange.layerCount = 1;
+
+		VkImageView imageView;
+		[[maybe_unused]] const auto result = vkCreateImageView(m_Device, &viewInfo, nullptr, &imageView);
+		VI_CORE_ASSERT(result != VK_SUCCESS, "Failed to create texture image view!");
+
+		return imageView;
 	}
 }

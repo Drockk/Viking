@@ -1,8 +1,8 @@
 #pragma once
 
-#include <vulkan/vulkan.hpp>
-
 #include "VulkanPhysicalDevice.hpp"
+
+#include <vulkan/vulkan.hpp>
 
 namespace Viking {
 	class VulkanLogicalDevice {
@@ -10,14 +10,17 @@ namespace Viking {
 		VulkanLogicalDevice() = default;
 		~VulkanLogicalDevice();
 
-		void init(VulkanPhysicalDevice device);
+		void init(Ref<VulkanPhysicalDevice> device);
+
+		static void onUpdate();
+
+		static VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 
 		//Temporary
 		static VkDevice getDevice();
 		static VkQueue getGraphicsQueue();
 		static VkQueue getPresentQueue();
 
-		void onUpdate() const;
 	private:
 		inline static VkDevice m_Device{ nullptr };
 
