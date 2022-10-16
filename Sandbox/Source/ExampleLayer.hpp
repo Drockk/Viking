@@ -75,7 +75,6 @@ private:
     void initVulkan();
 
     //Init Vulkan Methods
-    void createRenderPass();
     static VkFormat findDepthFormat();
     [[nodiscard]] static VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
     void createDescriptorSetLayout();
@@ -123,7 +122,6 @@ private:
 
     std::vector<VkFramebuffer> m_SwapChainFramebuffers;
 
-    VkRenderPass m_RenderPass{ nullptr };
     VkDescriptorSetLayout m_DescriptorSetLayout{ nullptr };
 
     VkPipelineLayout m_PipelineLayout{ nullptr };
