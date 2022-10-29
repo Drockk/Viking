@@ -8,12 +8,12 @@ namespace Viking {
 		vkDestroyRenderPass(m_LogicalDevice->getDevice(), m_RenderPass, nullptr);
 	}
 
-	void VulkanRenderPass::init(const Ref<VulkanSwapchain>& swapchain, const Ref<VulkanPhysicalDevice>& physicalDevice, const Ref<VulkanLogicalDevice>& logicalDevice) {
+	void VulkanRenderPass::init(VkFormat swapchainImageFormat, const Ref<VulkanPhysicalDevice>& physicalDevice, const Ref<VulkanLogicalDevice>& logicalDevice) {
 		m_PhysicalDevice = physicalDevice;
 		m_LogicalDevice = logicalDevice;
 
 		VkAttachmentDescription colorAttachment{};
-		colorAttachment.format = swapchain->getSwapchainImageFormat();
+		colorAttachment.format = swapchainImageFormat;
 		colorAttachment.samples = physicalDevice->getMsaaSamples();
 		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -33,7 +33,7 @@ namespace Viking {
 		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 		VkAttachmentDescription colorAttachmentResolve{};
-		colorAttachmentResolve.format = swapchain->getSwapchainImageFormat();
+		colorAttachmentResolve.format = swapchainImageFormat;
 		colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
 		colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -82,6 +82,10 @@ namespace Viking {
 		if (vkCreateRenderPass(logicalDevice->getDevice(), &renderPassInfo, nullptr, &m_RenderPass) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create render pass!");
 		}
+	}
+
+	VkRenderPass VulkanRenderPass::getRenderPass() const {
+		return m_RenderPass;
 	}
 
 	VkFormat VulkanRenderPass::findDepthFormat() const {

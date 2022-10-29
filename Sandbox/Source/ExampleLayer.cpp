@@ -218,7 +218,7 @@ void ExampleLayer::createGraphicsPipeline() {
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState;
     pipelineInfo.layout = m_PipelineLayout;
-    pipelineInfo.renderPass = m_RenderPass;
+    pipelineInfo.renderPass = Viking::VulkanContext::getSwapchain()->getRenderPass()->getRenderPass();
     pipelineInfo.subpass = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
@@ -269,7 +269,7 @@ void ExampleLayer::createFramebuffers() {
 
         VkFramebufferCreateInfo framebufferInfo{};
         framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebufferInfo.renderPass = m_RenderPass;
+        framebufferInfo.renderPass = Viking::VulkanContext::getSwapchain()->getRenderPass()->getRenderPass();
         framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
         framebufferInfo.pAttachments = attachments.data();
         framebufferInfo.width = Viking::VulkanContext::getSwapchain()->getSwapchainExtent().width;
@@ -1015,7 +1015,7 @@ void ExampleLayer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t i
 
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = m_RenderPass;
+    renderPassInfo.renderPass = Viking::VulkanContext::getSwapchain()->getRenderPass()->getRenderPass();
     renderPassInfo.framebuffer = m_SwapChainFramebuffers[imageIndex];
     renderPassInfo.renderArea.offset = { 0, 0 };
     renderPassInfo.renderArea.extent = Viking::VulkanContext::getSwapchain()->getSwapchainExtent();
