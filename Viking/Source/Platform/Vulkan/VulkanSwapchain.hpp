@@ -2,6 +2,7 @@
 
 #include "Platform/Vulkan/VulkanPhysicalDevice.hpp"
 #include "Platform/Vulkan/VulkanLogicalDevice.hpp"
+#include "Platform/Vulkan/VulkanRenderPass.hpp"
 
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
@@ -19,6 +20,7 @@ namespace Viking {
 		[[nodiscard]] VkFormat getSwapchainImageFormat() const;
 		[[nodiscard]] VkExtent2D getSwapchainExtent() const;
 		[[nodiscard]] std::vector<VkImageView> getSwapchainImagesViews() const;
+		[[nodiscard]] Ref<VulkanRenderPass>& getRenderPass();
 
 	private:
 		static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
@@ -26,6 +28,8 @@ namespace Viking {
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* window) const;
 
 		void createImageViews();
+
+		Ref<VulkanRenderPass> m_RenderPass;
 
 		Ref<VulkanLogicalDevice> m_LogicalDevice;
 

@@ -60,6 +60,9 @@ namespace Viking {
 		m_LogicalDevice = logicalDevice;
 
 		createImageViews();
+
+		m_RenderPass = createRef<VulkanRenderPass>();
+		m_RenderPass->init(m_SwapchainImageFormat, physicalDevice, logicalDevice);
 	}
 
 	VkSwapchainKHR VulkanSwapchain::getSwapchain() const {
@@ -76,6 +79,10 @@ namespace Viking {
 
 	std::vector<VkImageView> VulkanSwapchain::getSwapchainImagesViews() const {
 		return m_SwapchainImageViews;
+	}
+
+	Ref<VulkanRenderPass>& VulkanSwapchain::getRenderPass() {
+		return m_RenderPass;
 	}
 
 	VkSurfaceFormatKHR VulkanSwapchain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
