@@ -6,3 +6,4 @@
 #include "Viking/Core/Log.hpp"
 
 #include "Viking/Renderer/Context.hpp"
+#include "Viking/Renderer/Mesh.hpp"
