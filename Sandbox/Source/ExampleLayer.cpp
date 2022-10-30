@@ -3,9 +3,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
-
 #include <fstream>
 
 #include "GLFW/glfw3.h"
@@ -28,6 +25,9 @@ ExampleLayer::ExampleLayer(): Layer("ExampleLayer") {
 }
 
 void ExampleLayer::onAttach() {
+    m_Mesh = Viking::createScope<Viking::Mesh>();
+    m_Mesh->loadModel(MODEL_PATH);
+
     initVulkan();
 }
 
@@ -49,7 +49,7 @@ void ExampleLayer::initVulkan() {
     createTextureImage();
     createTextureImageView();
     createTextureSampler();
-    loadModel();
+
     createVertexBuffer();
     createIndexBuffer();
     createUniformBuffers();
@@ -131,8 +131,8 @@ void ExampleLayer::createGraphicsPipeline() {
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-    auto bindingDescription = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+    auto bindingDescription = Viking::Vertex::getBindingDescription();
+    auto attributeDescriptions = Viking::Vertex::getAttributeDescriptions();
 
     vertexInputInfo.vertexBindingDescriptionCount = 1;
     vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
@@ -648,48 +648,8 @@ void ExampleLayer::createTextureSampler() {
     }
 }
 
-void ExampleLayer::loadModel() {
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-    std::string err;
-
-    if (!LoadObj(&attrib, &shapes, &materials, &err, MODEL_PATH.c_str())) {
-        std::string warn;
-        throw std::runtime_error(warn + err);
-    }
-
-    std::unordered_map<Vertex, uint32_t> uniqueVertices{};
-
-    for (const auto& shape : shapes) {
-        for (const auto& index : shape.mesh.indices) {
-            Vertex vertex{};
-
-            vertex.pos = {
-                attrib.vertices[3 * index.vertex_index + 0],
-                attrib.vertices[3 * index.vertex_index + 1],
-                attrib.vertices[3 * index.vertex_index + 2]
-            };
-
-            vertex.texCoord = {
-                attrib.texcoords[2 * index.texcoord_index + 0],
-                1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-            };
-
-            vertex.color = { 1.0f, 1.0f, 1.0f };
-
-            if (uniqueVertices.count(vertex) == 0) {
-                uniqueVertices[vertex] = static_cast<uint32_t>(m_Vertices.size());
-                m_Vertices.push_back(vertex);
-            }
-
-            m_Indices.push_back(uniqueVertices[vertex]);
-        }
-    }
-}
-
 void ExampleLayer::createVertexBuffer() {
-    const auto bufferSize = sizeof(m_Vertices[0]) * m_Vertices.size();
+    const auto bufferSize = sizeof(m_Mesh->getVertices()[0]) * m_Mesh->getVertices().size();
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
@@ -697,7 +657,7 @@ void ExampleLayer::createVertexBuffer() {
 
     void* data;
     vkMapMemory(Viking::VulkanLogicalDevice::getDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, m_Vertices.data(), bufferSize);
+    memcpy(data, m_Mesh->getVertices().data(), bufferSize);
     vkUnmapMemory(Viking::VulkanLogicalDevice::getDevice(), stagingBufferMemory);
 
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_VertexBuffer, m_VertexBufferMemory);
@@ -719,7 +679,7 @@ void ExampleLayer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSi
 }
 
 void ExampleLayer::createIndexBuffer() {
-    const auto bufferSize = sizeof m_Indices[0] * m_Indices.size();
+    const auto bufferSize = sizeof m_Mesh->getIndices()[0] * m_Mesh->getIndices().size();
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
@@ -727,7 +687,7 @@ void ExampleLayer::createIndexBuffer() {
 
     void* data;
     vkMapMemory(Viking::VulkanLogicalDevice::getDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, m_Indices.data(), bufferSize);
+    memcpy(data, m_Mesh->getIndices().data(), bufferSize);
     vkUnmapMemory(Viking::VulkanLogicalDevice::getDevice(), stagingBufferMemory);
 
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_IndexBuffer, m_IndexBufferMemory);
@@ -1053,7 +1013,7 @@ void ExampleLayer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t i
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, 1, &m_DescriptorSets[m_CurrentFrame], 0, nullptr);
 
-    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Indices.size()), 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Mesh->getIndices().size()), 1, 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 
