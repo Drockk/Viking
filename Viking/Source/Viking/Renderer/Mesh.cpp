@@ -2,6 +2,9 @@
 
 #include "Viking/Renderer/Mesh.hpp"
 
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
+
 namespace Viking {
 
 	void Mesh::loadModel(const std::string& path) {
