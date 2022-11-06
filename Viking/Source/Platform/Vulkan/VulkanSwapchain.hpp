@@ -15,6 +15,9 @@ namespace Viking {
 
 		void init(const Ref<VulkanPhysicalDevice>& physicalDevice, VkSurfaceKHR surface, const Ref<VulkanLogicalDevice>& logicalDevice, GLFWwindow* window);
 
+		VkImageView createColorResource(VkImage image, VkDeviceMemory memory) const;
+		VkImageView createDepthResource(VkImage image, VkDeviceMemory memory);
+
 		//Temp
 		[[nodiscard]] VkSwapchainKHR getSwapchain() const;
 		[[nodiscard]] VkFormat getSwapchainImageFormat() const;
@@ -29,8 +32,18 @@ namespace Viking {
 
 		void createImageViews();
 
+		VkImageView createResource(VkFormat format, VkImage image, VkDeviceMemory memory, VkImageTiling imageTiling, VkImageUsageFlags imageUsageFlags, VkMemoryPropertyFlags memoryPropertyFlags, VkImageAspectFlags aspectFlags) const;
+
+		void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
+			VkDeviceMemory& imageMemory) const;
+
+		uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
+
+
 		Ref<VulkanRenderPass> m_RenderPass;
 
+		Ref<VulkanPhysicalDevice> m_PhysicalDevice;
 		Ref<VulkanLogicalDevice> m_LogicalDevice;
 
 		VkSwapchainKHR m_Swapchain{ nullptr };

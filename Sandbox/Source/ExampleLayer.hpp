@@ -21,13 +21,9 @@ private:
     static VkFormat findDepthFormat();
     [[nodiscard]] static VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
     void createCommandPool();
-    void createColorResources();
-    void createDepthResources();
     void createFramebuffers();
     void createTextureImage();
 
-    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const;
-    [[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels) const;
     [[nodiscard]] VkCommandBuffer beginSingleTimeCommands() const;
@@ -62,14 +58,6 @@ private:
     std::vector<VkFramebuffer> m_SwapChainFramebuffers;
 
     VkCommandPool m_CommandPool{ nullptr };
-
-    VkImage m_ColorImage{ nullptr };
-    VkDeviceMemory m_ColorImageMemory{ nullptr };
-    VkImageView m_ColorImageView{ nullptr };
-
-    VkImage m_DepthImage{ nullptr };
-    VkDeviceMemory m_DepthImageMemory{ nullptr };
-    VkImageView m_DepthImageView{ nullptr };
 
     uint32_t m_MipLevels{ 0 };
 
