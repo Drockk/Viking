@@ -1,17 +1,24 @@
 #include <Viking.hpp>
-#include <Viking/Core/Entrypoint.hpp>
 
-#include "ExampleLayer.hpp"
+#include <iostream>
+#include <cstdlib>
 
-class Sandbox: public Viking::Application {
-public:
-	Sandbox(const Viking::ApplicationCommandLineArgs args): Application("Sandbox", args) {
-		pushLayer(new ExampleLayer());
-	}
+class HelloTriangleApplication: public Viking::Application {
 
-	~Sandbox() override = default;
 };
 
-std::unique_ptr<Viking::Application> createApplication(Viking::ApplicationCommandLineArgs args) {
-	return std::make_unique<Sandbox>(args);
+int main() {
+
+    try {
+        HelloTriangleApplication app;
+        app.init();
+        app.run();
+        app.shutdown();
+    }
+    catch (const std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
 }

@@ -15,6 +15,7 @@ project "Sandbox"
         "%{IncludeDir.glm}/glm/**.inl",
         "%{IncludeDir.stb}/**.h",
         "%{IncludeDir.stb}/**.cpp",
+        -- "%{IncludeDir.tinyObjLoader}/**.h"
     }
 
     includedirs
