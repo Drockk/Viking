@@ -13,6 +13,7 @@
 #include <optional>
 #include <array>
 #include <string>
+#include <memory>
 
 struct QueueFamilyIndices {
 	std::optional<uint32_t> graphicsFamily;
@@ -204,4 +205,6 @@ namespace Viking {
 		std::vector<VkFence> m_InFlightFences;
 		uint32_t m_CurrentFrame = 0;
 	};
+
+	std::unique_ptr<Application> createApplication();
 }

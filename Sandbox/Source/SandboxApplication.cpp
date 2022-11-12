@@ -1,24 +1,10 @@
 #include <Viking.hpp>
-
-#include <iostream>
-#include <cstdlib>
+#include <Viking/Core/Entrypoint.hpp>
 
 class HelloTriangleApplication: public Viking::Application {
 
 };
 
-int main() {
-
-    try {
-        HelloTriangleApplication app;
-        app.init();
-        app.run();
-        app.shutdown();
-    }
-    catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    return EXIT_SUCCESS;
+std::unique_ptr<Viking::Application> createApplication() {
+    return std::make_unique<HelloTriangleApplication>();
 }
