@@ -11,8 +11,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-constexpr uint32_t WIDTH{ 800 };
-constexpr uint32_t HEIGHT{ 600 };
+#include <GLFW/glfw3.h>
 
 const std::string TEXTURE_PATH = "textures/viking_room.png";
 const std::string MODEL_PATH = "models/viking_room.obj";
@@ -34,47 +33,44 @@ const std::vector deviceExtensions = {
 constexpr int MAX_FRAMES_IN_FLIGHT{ 2 };
 
 VkResult createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
-	const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
+    const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
     if (func != nullptr) {
         return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
     }
 
-	return VK_ERROR_EXTENSION_NOT_PRESENT;
+    return VK_ERROR_EXTENSION_NOT_PRESENT;
 }
 
 void destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
-	const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
-    if (func != nullptr) {
+    if (const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT")); func != nullptr) {
         func(instance, debugMessenger, pAllocator);
     }
 }
 
 namespace Viking {
 
-	void Application::init() {
-		initWindow();
-		initVulkan();
-	}
+    void Application::init() {
+        m_Window = Window::create(WindowProperties());
+        m_Window->setEventCallback(VI_BIND_EVENT_FN(Application::onEvent));
 
-	void Application::run() {
-		mainLoop();
-	}
+        initVulkan();
+    }
 
-	void Application::shutdown() const {
-		cleanup();
-	}
+    void Application::run() {
+        while (m_Running) {
+            m_Window->onUpdate();
 
-	void Application::initWindow() {
-		glfwInit();
+            drawFrame();
+        }
 
-		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        vkDeviceWaitIdle(m_Device);
+    }
 
-		m_Window = glfwCreateWindow(WIDTH, HEIGHT, "Viking App", nullptr, nullptr);
-		glfwSetWindowUserPointer(m_Window, this);
-		glfwSetFramebufferSizeCallback(m_Window, framebufferResizeCallback);
-	}
+    void Application::shutdown() const {
+        cleanup();
+    }
 
-	void Application::initVulkan() {
+    void Application::initVulkan() {
         createInstance();
         setupDebugMessenger();
         createSurface();
@@ -100,18 +96,9 @@ namespace Viking {
         createDescriptorSets();
         createCommandBuffers();
         createSyncObjects();
-	}
+    }
 
-	void Application::mainLoop() {
-        while (!glfwWindowShouldClose(m_Window)) {
-            glfwPollEvents();
-            drawFrame();
-        }
-
-        vkDeviceWaitIdle(m_Device);
-	}
-
-	void Application::cleanup() const {
+    void Application::cleanup() const {
         cleanupSwapChain();
 
         vkDestroyPipeline(m_Device, m_GraphicsPipeline, nullptr);
@@ -155,25 +142,16 @@ namespace Viking {
 
         vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
         vkDestroyInstance(m_Instance, nullptr);
+    }
 
-        glfwDestroyWindow(m_Window);
-
-        glfwTerminate();
-	}
-
-	void Application::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
-		const auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
-        app->framebufferResized = true;
-	}
-
-	void Application::createInstance() {
-		if (enableValidationLayers && !checkValidationLayerSupport()) {
+    void Application::createInstance() {
+        if (enableValidationLayers && !checkValidationLayerSupport()) {
             throw std::runtime_error("validation layers requested, but not available!");
-		}
+        }
 
         VkApplicationInfo appInfo{};
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        appInfo.pApplicationName = "Hello Triangle";
+        appInfo.pApplicationName = "Viking App";
         appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
         appInfo.pEngineName = "No Engine";
         appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -183,7 +161,7 @@ namespace Viking {
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         createInfo.pApplicationInfo = &appInfo;
 
-		const auto extensions = getRequiredExtensions();
+        const auto extensions = getRequiredExtensions();
         createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
         createInfo.ppEnabledExtensionNames = extensions.data();
 
@@ -204,9 +182,9 @@ namespace Viking {
         if (vkCreateInstance(&createInfo, nullptr, &m_Instance) != VK_SUCCESS) {
             throw std::runtime_error("failed to create instance!");
         }
-	}
+    }
 
-	bool Application::checkValidationLayerSupport() {
+    bool Application::checkValidationLayerSupport() {
         uint32_t layerCount;
         vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
@@ -214,7 +192,7 @@ namespace Viking {
         vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
         for (const char* layerName : validationLayers) {
-	        auto layerFound = false;
+            auto layerFound = false;
 
             for (const auto& layerProperties : availableLayers) {
                 if (strcmp(layerName, layerProperties.layerName) == 0) {
@@ -229,38 +207,36 @@ namespace Viking {
         }
 
         return true;
-	}
+    }
 
-	std::vector<const char*> Application::getRequiredExtensions() {
+    std::vector<const char*> Application::getRequiredExtensions() {
         uint32_t glfwExtensionCount = 0;
         const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
         std::vector extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
-        if (enableValidationLayers) {
+        if constexpr (enableValidationLayers) {
             extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
 
         return extensions;
-	}
+    }
 
-	void Application::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
+    void Application::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
         createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
         createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         createInfo.pfnUserCallback = debugCallback;
-	}
+    }
 
-	VkBool32 Application::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-		VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-		void* pUserData) {
+    VkBool32 Application::debugCallback([[maybe_unused]] VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, [[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, [[maybe_unused]] void* pUserData) {
         std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 
         return VK_FALSE;
-	}
+    }
 
-	void Application::setupDebugMessenger() {
+    void Application::setupDebugMessenger() {
         if constexpr (!enableValidationLayers) 
             return;
 
@@ -270,15 +246,15 @@ namespace Viking {
         if (createDebugUtilsMessengerEXT(m_Instance, &createInfo, nullptr, &m_DebugMessenger) != VK_SUCCESS) {
             throw std::runtime_error("failed to set up debug messenger!");
         }
-	}
+    }
 
-	void Application::createSurface() {
-        if (glfwCreateWindowSurface(m_Instance, m_Window, nullptr, &m_Surface) != VK_SUCCESS) {
+    void Application::createSurface() {
+        if (glfwCreateWindowSurface(m_Instance, static_cast<GLFWwindow*>(m_Window->getNativeWindow()), nullptr, &m_Surface) != VK_SUCCESS) {
             throw std::runtime_error("failed to create window surface!");
         }
-	}
+    }
 
-	void Application::pickPhysicalDevice() {
+    void Application::pickPhysicalDevice() {
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(m_Instance, &deviceCount, nullptr);
 
@@ -300,14 +276,14 @@ namespace Viking {
         if (m_PhysicalDevice == VK_NULL_HANDLE) {
             throw std::runtime_error("failed to find a suitable GPU!");
         }
-	}
+    }
 
-	bool Application::isDeviceSuitable(VkPhysicalDevice device) const {
+    bool Application::isDeviceSuitable(VkPhysicalDevice device) const {
         QueueFamilyIndices indices = findQueueFamilies(device);
 
         const auto extensionsSupported = checkDeviceExtensionSupport(device);
 
-        bool swapChainAdequate = false;
+        auto swapChainAdequate = false;
         if (extensionsSupported) {
             SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
             swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
@@ -317,9 +293,9 @@ namespace Viking {
         vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
 
         return indices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
-	}
+    }
 
-	QueueFamilyIndices Application::findQueueFamilies(VkPhysicalDevice device) const {
+    QueueFamilyIndices Application::findQueueFamilies(VkPhysicalDevice device) const {
         QueueFamilyIndices indices;
 
         uint32_t queueFamilyCount = 0;
@@ -328,7 +304,7 @@ namespace Viking {
         std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
         vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
-        int i = 0;
+        auto i = 0;
         for (const auto& queueFamily : queueFamilies) {
             if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
                 indices.graphicsFamily = i;
@@ -349,9 +325,9 @@ namespace Viking {
         }
 
         return indices;
-	}
+    }
 
-	bool Application::checkDeviceExtensionSupport(VkPhysicalDevice device) {
+    bool Application::checkDeviceExtensionSupport(VkPhysicalDevice device) {
         uint32_t extensionCount;
         vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
@@ -365,9 +341,9 @@ namespace Viking {
         }
 
         return requiredExtensions.empty();
-	}
+    }
 
-	SwapChainSupportDetails Application::querySwapChainSupport(VkPhysicalDevice device) const {
+    SwapChainSupportDetails Application::querySwapChainSupport(VkPhysicalDevice device) const {
         SwapChainSupportDetails details;
 
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_Surface, &details.capabilities);
@@ -389,9 +365,9 @@ namespace Viking {
         }
 
         return details;
-	}
+    }
 
-	VkSampleCountFlagBits Application::getMaxUsableSampleCount() const {
+    VkSampleCountFlagBits Application::getMaxUsableSampleCount() const {
         VkPhysicalDeviceProperties physicalDeviceProperties;
         vkGetPhysicalDeviceProperties(m_PhysicalDevice, &physicalDeviceProperties);
 
@@ -404,15 +380,15 @@ namespace Viking {
         if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
 
         return VK_SAMPLE_COUNT_1_BIT;
-	}
+    }
 
-	void Application::createLogicalDevice() {
+    void Application::createLogicalDevice() {
         QueueFamilyIndices indices = findQueueFamilies(m_PhysicalDevice);
 
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
         std::set uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
-        float queuePriority = 1.0f;
+        auto queuePriority = 1.0f;
         for (uint32_t queueFamily : uniqueQueueFamilies) {
             VkDeviceQueueCreateInfo queueCreateInfo{};
             queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -450,14 +426,14 @@ namespace Viking {
 
         vkGetDeviceQueue(m_Device, indices.graphicsFamily.value(), 0, &m_GraphicsQueue);
         vkGetDeviceQueue(m_Device, indices.presentFamily.value(), 0, &m_PresentQueue);
-	}
+    }
 
-	void Application::createSwapChain() {
-		const SwapChainSupportDetails swapChainSupport = querySwapChainSupport(m_PhysicalDevice);
+    void Application::createSwapChain() {
+        const SwapChainSupportDetails swapChainSupport = querySwapChainSupport(m_PhysicalDevice);
 
-		const VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
-		const VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-		const VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+        const VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
+        const VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
+        const VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
 
         uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
         if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
@@ -475,8 +451,8 @@ namespace Viking {
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-		const QueueFamilyIndices indices = findQueueFamilies(m_PhysicalDevice);
-		const uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+        const QueueFamilyIndices indices = findQueueFamilies(m_PhysicalDevice);
+        const uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
         if (indices.graphicsFamily != indices.presentFamily) {
             createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
@@ -502,9 +478,9 @@ namespace Viking {
 
         m_SwapChainImageFormat = surfaceFormat.format;
         m_SwapChainExtent = extent;
-	}
+    }
 
-	VkSurfaceFormatKHR Application::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
+    VkSurfaceFormatKHR Application::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
         for (const auto& availableFormat : availableFormats) {
             if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
                 return availableFormat;
@@ -512,9 +488,9 @@ namespace Viking {
         }
 
         return availableFormats[0];
-	}
+    }
 
-	VkPresentModeKHR Application::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
+    VkPresentModeKHR Application::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
         for (const auto& availablePresentMode : availablePresentModes) {
             if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
                 return availablePresentMode;
@@ -522,38 +498,37 @@ namespace Viking {
         }
 
         return VK_PRESENT_MODE_FIFO_KHR;
-	}
+    }
 
-	VkExtent2D Application::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) const {
+    VkExtent2D Application::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) const {
         if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
             return capabilities.currentExtent;
         }
-        else {
-            int width, height;
-            glfwGetFramebufferSize(m_Window, &width, &height);
 
-            VkExtent2D actualExtent = {
-                static_cast<uint32_t>(width),
-                static_cast<uint32_t>(height)
-            };
+        const auto width = m_Window->getWidth();
+        const auto height = m_Window->getHeight();
 
-            actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-            actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+        VkExtent2D actualExtent = {
+            static_cast<uint32_t>(width),
+            static_cast<uint32_t>(height)
+        };
 
-            return actualExtent;
-        }
-	}
+        actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+        actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
 
-	void Application::createImageViews() {
+        return actualExtent;
+    }
+
+    void Application::createImageViews() {
         swapChainImageViews.resize(m_SwapChainImages.size());
 
         for (uint32_t i = 0; i < m_SwapChainImages.size(); i++) {
             swapChainImageViews[i] = createImageView(m_SwapChainImages[i], m_SwapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
         }
-	}
+    }
 
-	VkImageView Application::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
-		uint32_t mipLevels) const {
+    VkImageView Application::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
+        uint32_t mipLevels) const {
         VkImageViewCreateInfo viewInfo{};
         viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         viewInfo.image = image;
@@ -571,9 +546,9 @@ namespace Viking {
         }
 
         return imageView;
-	}
+    }
 
-	void Application::createRenderPass() {
+    void Application::createRenderPass() {
         VkAttachmentDescription colorAttachment{};
         colorAttachment.format = m_SwapChainImageFormat;
         colorAttachment.samples = m_MsaaSamples;
@@ -644,14 +619,14 @@ namespace Viking {
         if (vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_RenderPass) != VK_SUCCESS) {
             throw std::runtime_error("failed to create render pass!");
         }
-	}
+    }
 
-	VkFormat Application::findDepthFormat() const {
+    VkFormat Application::findDepthFormat() const {
         return findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-	}
+    }
 
-	VkFormat Application::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling,
-		VkFormatFeatureFlags features) const {
+    VkFormat Application::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling,
+        VkFormatFeatureFlags features) const {
         for (const VkFormat format: candidates) {
             VkFormatProperties props;
             vkGetPhysicalDeviceFormatProperties(m_PhysicalDevice, format, &props);
@@ -660,14 +635,14 @@ namespace Viking {
                 return format;
             }
             if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
-	            return format;
+                return format;
             }
         }
 
         throw std::runtime_error("failed to find supported format!");
-	}
+    }
 
-	void Application::createDescriptorSetLayout() {
+    void Application::createDescriptorSetLayout() {
         VkDescriptorSetLayoutBinding uboLayoutBinding;
         uboLayoutBinding.binding = 0;
         uboLayoutBinding.descriptorCount = 1;
@@ -691,9 +666,9 @@ namespace Viking {
         if (vkCreateDescriptorSetLayout(m_Device, &layoutInfo, nullptr, &m_DescriptorSetLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor set layout!");
         }
-	}
+    }
 
-	void Application::createGraphicsPipeline() {
+    void Application::createGraphicsPipeline() {
         auto vertShaderCode = readFile("shaders/vert.spv");
         auto fragShaderCode = readFile("shaders/frag.spv");
 
@@ -814,9 +789,9 @@ namespace Viking {
 
         vkDestroyShaderModule(m_Device, fragShaderModule, nullptr);
         vkDestroyShaderModule(m_Device, vertShaderModule, nullptr);
-	}
+    }
 
-	std::vector<char> Application::readFile(const std::string& filename) {
+    std::vector<char> Application::readFile(const std::string& filename) {
         std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
         if (!file.is_open()) {
@@ -832,9 +807,9 @@ namespace Viking {
         file.close();
 
         return buffer;
-	}
+    }
 
-	VkShaderModule Application::createShaderModule(const std::vector<char>& code) const {
+    VkShaderModule Application::createShaderModule(const std::vector<char>& code) const {
         VkShaderModuleCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         createInfo.codeSize = code.size();
@@ -846,10 +821,10 @@ namespace Viking {
         }
 
         return shaderModule;
-	}
+    }
 
-	void Application::createCommandPool() {
-		const QueueFamilyIndices queueFamilyIndices = findQueueFamilies(m_PhysicalDevice);
+    void Application::createCommandPool() {
+        const QueueFamilyIndices queueFamilyIndices = findQueueFamilies(m_PhysicalDevice);
 
         VkCommandPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -859,18 +834,18 @@ namespace Viking {
         if (vkCreateCommandPool(m_Device, &poolInfo, nullptr, &m_CommandPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create graphics command pool!");
         }
-	}
+    }
 
-	void Application::createColorResources() {
-		const VkFormat colorFormat = m_SwapChainImageFormat;
+    void Application::createColorResources() {
+        const VkFormat colorFormat = m_SwapChainImageFormat;
 
         createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, m_MsaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_ColorImage, m_ColorImageMemory);
         m_ColorImageView = createImageView(m_ColorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
-	}
+    }
 
-	void Application::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples,
-		VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
-		VkImage& image, VkDeviceMemory& imageMemory) const {
+    void Application::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples,
+        VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
+        VkImage& image, VkDeviceMemory& imageMemory) const {
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -903,9 +878,9 @@ namespace Viking {
         }
 
         vkBindImageMemory(m_Device, image, imageMemory, 0);
-	}
+    }
 
-	uint32_t Application::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
+    uint32_t Application::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
         VkPhysicalDeviceMemoryProperties memProperties;
         vkGetPhysicalDeviceMemoryProperties(m_PhysicalDevice, &memProperties);
 
@@ -916,16 +891,16 @@ namespace Viking {
         }
 
         throw std::runtime_error("failed to find suitable memory type!");
-	}
+    }
 
-	void Application::createDepthResources() {
-		const VkFormat depthFormat = findDepthFormat();
+    void Application::createDepthResources() {
+        const VkFormat depthFormat = findDepthFormat();
 
         createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, m_MsaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
         m_DepthImageView = createImageView(m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
-	}
+    }
 
-	void Application::createFramebuffers() {
+    void Application::createFramebuffers() {
         swapChainFramebuffers.resize(swapChainImageViews.size());
 
         for (size_t i = 0; i < swapChainImageViews.size(); i++) {
@@ -948,9 +923,9 @@ namespace Viking {
                 throw std::runtime_error("failed to create framebuffer!");
             }
         }
-	}
+    }
 
-	void Application::createTextureImage() {
+    void Application::createTextureImage() {
         int texWidth, texHeight, texChannels;
         stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         const VkDeviceSize imageSize = static_cast<VkDeviceSize>(texWidth) * texHeight * 4;
@@ -981,14 +956,14 @@ namespace Viking {
         vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
 
         generateMipmaps(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, m_MipLevels);
-	}
+    }
 
-	void Application::createTextureImageView() {
+    void Application::createTextureImageView() {
         m_TextureImageView = createImageView(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, m_MipLevels);
-	}
+    }
 
-	void Application::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
-		VkBuffer& buffer, VkDeviceMemory& bufferMemory) const {
+    void Application::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
+        VkBuffer& buffer, VkDeviceMemory& bufferMemory) const {
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferInfo.size = size;
@@ -1012,11 +987,11 @@ namespace Viking {
         }
 
         vkBindBufferMemory(m_Device, buffer, bufferMemory, 0);
-	}
+    }
 
-	void Application::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
-		VkImageLayout newLayout, uint32_t mipLevels) const {
-		const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+    void Application::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
+        VkImageLayout newLayout, uint32_t mipLevels) const {
+        const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1052,19 +1027,12 @@ namespace Viking {
             throw std::invalid_argument("unsupported layout transition!");
         }
 
-        vkCmdPipelineBarrier(
-            commandBuffer,
-            sourceStage, destinationStage,
-            0,
-            0, nullptr,
-            0, nullptr,
-            1, &barrier
-        );
+        vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
         endSingleTimeCommands(commandBuffer);
-	}
+    }
 
-	VkCommandBuffer Application::beginSingleTimeCommands() const {
+    VkCommandBuffer Application::beginSingleTimeCommands() const {
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -1082,9 +1050,9 @@ namespace Viking {
         vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
         return commandBuffer;
-	}
+    }
 
-	void Application::endSingleTimeCommands(VkCommandBuffer commandBuffer) const {
+    void Application::endSingleTimeCommands(VkCommandBuffer commandBuffer) const {
         vkEndCommandBuffer(commandBuffer);
 
         VkSubmitInfo submitInfo{};
@@ -1096,10 +1064,10 @@ namespace Viking {
         vkQueueWaitIdle(m_GraphicsQueue);
 
         vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &commandBuffer);
-	}
+    }
 
-	void Application::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const {
-		const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+    void Application::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const {
+        const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
         VkBufferImageCopy region;
         region.bufferOffset = 0;
@@ -1119,10 +1087,10 @@ namespace Viking {
         vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
         endSingleTimeCommands(commandBuffer);
-	}
+    }
 
-	void Application::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight,
-		uint32_t mipLevels) const {
+    void Application::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight,
+        uint32_t mipLevels) const {
         // Check if image format supports linear blitting
         VkFormatProperties formatProperties;
         vkGetPhysicalDeviceFormatProperties(m_PhysicalDevice, imageFormat, &formatProperties);
@@ -1207,9 +1175,9 @@ namespace Viking {
             1, &barrier);
 
         endSingleTimeCommands(commandBuffer);
-	}
+    }
 
-	void Application::createTextureSampler() {
+    void Application::createTextureSampler() {
         VkPhysicalDeviceProperties properties{};
         vkGetPhysicalDeviceProperties(m_PhysicalDevice, &properties);
 
@@ -1234,17 +1202,17 @@ namespace Viking {
         if (vkCreateSampler(m_Device, &samplerInfo, nullptr, &m_TextureSampler) != VK_SUCCESS) {
             throw std::runtime_error("failed to create texture sampler!");
         }
-	}
+    }
 
-	void Application::loadModel() {
+    void Application::loadModel() {
         tinyobj::attrib_t attrib;
         std::vector<tinyobj::shape_t> shapes;
         std::vector<tinyobj::material_t> materials;
         std::string err;
 
         if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, MODEL_PATH.c_str())) {
-	        std::string warn;
-	        throw std::runtime_error(warn + err);
+            std::string warn;
+            throw std::runtime_error(warn + err);
         }
 
         std::unordered_map<Vertex, uint32_t> uniqueVertices{};
@@ -1274,10 +1242,10 @@ namespace Viking {
                 m_Indices.push_back(uniqueVertices[vertex]);
             }
         }
-	}
+    }
 
-	void Application::createVertexBuffer() {
-		const VkDeviceSize bufferSize = sizeof(m_Vertices[0]) * m_Vertices.size();
+    void Application::createVertexBuffer() {
+        const VkDeviceSize bufferSize = sizeof(m_Vertices[0]) * m_Vertices.size();
 
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
@@ -1294,20 +1262,20 @@ namespace Viking {
 
         vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
         vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
-	}
+    }
 
-	void Application::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const {
-		const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+    void Application::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const {
+        const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
         VkBufferCopy copyRegion{};
         copyRegion.size = size;
         vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
         endSingleTimeCommands(commandBuffer);
-	}
+    }
 
-	void Application::createIndexBuffer() {
-		const VkDeviceSize bufferSize = sizeof(m_Indices[0]) * m_Indices.size();
+    void Application::createIndexBuffer() {
+        const VkDeviceSize bufferSize = sizeof(m_Indices[0]) * m_Indices.size();
 
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
@@ -1324,23 +1292,23 @@ namespace Viking {
 
         vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
         vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
-	}
+    }
 
-	void Application::createUniformBuffers() {
+    void Application::createUniformBuffers() {
 
-		m_UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+        m_UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
         m_UniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
         m_UniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-	        constexpr VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-	        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_UniformBuffers[i], m_UniformBuffersMemory[i]);
+            constexpr VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+            createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_UniformBuffers[i], m_UniformBuffersMemory[i]);
 
             vkMapMemory(m_Device, m_UniformBuffersMemory[i], 0, bufferSize, 0, &m_UniformBuffersMapped[i]);
         }
-	}
+    }
 
-	void Application::createDescriptorPool() {
+    void Application::createDescriptorPool() {
         std::array<VkDescriptorPoolSize, 2> poolSizes{};
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
@@ -1356,10 +1324,10 @@ namespace Viking {
         if (vkCreateDescriptorPool(m_Device, &poolInfo, nullptr, &m_DescriptorPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor pool!");
         }
-	}
+    }
 
-	void Application::createDescriptorSets() {
-		const std::vector layouts(MAX_FRAMES_IN_FLIGHT, m_DescriptorSetLayout);
+    void Application::createDescriptorSets() {
+        const std::vector layouts(MAX_FRAMES_IN_FLIGHT, m_DescriptorSetLayout);
         VkDescriptorSetAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocInfo.descriptorPool = m_DescriptorPool;
@@ -1402,9 +1370,9 @@ namespace Viking {
 
             vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
         }
-	}
+    }
 
-	void Application::createCommandBuffers() {
+    void Application::createCommandBuffers() {
         m_CommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
         VkCommandBufferAllocateInfo allocInfo{};
@@ -1416,9 +1384,9 @@ namespace Viking {
         if (vkAllocateCommandBuffers(m_Device, &allocInfo, m_CommandBuffers.data()) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate command buffers!");
         }
-	}
+    }
 
-	void Application::createSyncObjects() {
+    void Application::createSyncObjects() {
         m_ImageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
         m_RenderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
         m_InFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1437,9 +1405,9 @@ namespace Viking {
                 throw std::runtime_error("failed to create synchronization objects for a frame!");
             }
         }
-	}
+    }
 
-	void Application::drawFrame() {
+    void Application::drawFrame() {
         vkWaitForFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
         uint32_t imageIndex;
@@ -1494,8 +1462,8 @@ namespace Viking {
 
         result = vkQueuePresentKHR(m_PresentQueue, &presentInfo);
 
-        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
-            framebufferResized = false;
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_FramebufferResized) {
+            m_FramebufferResized = false;
             recreateSwapChain();
         }
         else if (result != VK_SUCCESS) {
@@ -1503,14 +1471,17 @@ namespace Viking {
         }
 
         m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-	}
+    }
 
-	void Application::recreateSwapChain() {
-        int width = 0, height = 0;
-        glfwGetFramebufferSize(m_Window, &width, &height);
+    void Application::recreateSwapChain() {
+        auto width = m_Window->getWidth();
+        auto height = m_Window->getHeight();
+
         while (width == 0 || height == 0) {
-            glfwGetFramebufferSize(m_Window, &width, &height);
-            glfwWaitEvents();
+            width = m_Window->getWidth();
+            height = m_Window->getHeight();
+
+            m_Window->onUpdate();
         }
 
         vkDeviceWaitIdle(m_Device);
@@ -1522,9 +1493,9 @@ namespace Viking {
         createColorResources();
         createDepthResources();
         createFramebuffers();
-	}
+    }
 
-	void Application::cleanupSwapChain() const {
+    void Application::cleanupSwapChain() const {
         vkDestroyImageView(m_Device, m_DepthImageView, nullptr);
         vkDestroyImage(m_Device, m_DepthImage, nullptr);
         vkFreeMemory(m_Device, m_DepthImageMemory, nullptr);
@@ -1542,24 +1513,24 @@ namespace Viking {
         }
 
         vkDestroySwapchainKHR(m_Device, m_SwapChain, nullptr);
-	}
+    }
 
-	void Application::updateUniformBuffer(const uint32_t currentImage) const {
+    void Application::updateUniformBuffer(const uint32_t currentImage) const {
         static auto startTime = std::chrono::high_resolution_clock::now();
 
         const auto currentTime = std::chrono::high_resolution_clock::now();
         const float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-        UniformBufferObject ubo;
+        UniformBufferObject ubo{};
         ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(m_SwapChainExtent.width) / static_cast<float>(m_SwapChainExtent.height), 0.1f, 10.0f);
         ubo.proj[1][1] *= -1;
 
         memcpy(m_UniformBuffersMapped[currentImage], &ubo, sizeof ubo);
-	}
+    }
 
-	void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) const {
+    void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) const {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -1614,5 +1585,29 @@ namespace Viking {
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
         }
-	}
+    }
+
+    void Application::onEvent(Event& event) {
+        EventDispatcher dispatcher(event);
+        dispatcher.dispatch<WindowCloseEvent>(VI_BIND_EVENT_FN(Application::onWindowClose));
+        dispatcher.dispatch<WindowResizeEvent>(VI_BIND_EVENT_FN(Application::onWindowResize));
+    }
+
+    bool Application::onWindowClose([[maybe_unused]] WindowCloseEvent& event)
+    {
+        m_Running = false;
+        return true;
+    }
+
+    bool Application::onWindowResize(const WindowResizeEvent& event)
+    {
+        if (event.getWidth() == 0 || event.getHeight() == 0)
+        {
+            return false;
+        }
+
+        m_FramebufferResized = true;
+
+        return false;
+    }
 }

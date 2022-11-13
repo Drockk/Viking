@@ -15,7 +15,6 @@ project "Sandbox"
         "%{IncludeDir.glm}/glm/**.inl",
         "%{IncludeDir.stb}/**.h",
         "%{IncludeDir.stb}/**.cpp",
-        -- "%{IncludeDir.tinyObjLoader}/**.h"
     }
 
     includedirs
@@ -40,8 +39,7 @@ project "Sandbox"
 
         defines
         {
-            "VI_PLATFORM_WINDOWS",
-            "GLFW_INCLUDE_NONE"
+            "VI_PLATFORM_WINDOWS"
         }
 
     filter "configurations:Debug"
