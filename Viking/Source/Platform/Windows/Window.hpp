@@ -2,6 +2,8 @@
 
 #include "Viking/Core/Window.hpp"
 
+#include "Platform/Vulkan/Context.hpp"
+
 #include <GLFW/glfw3.h>
 
 namespace Windows {
@@ -15,6 +17,8 @@ namespace Windows {
 		[[nodiscard]] uint32_t getWidth() override;
 		[[nodiscard]] uint32_t getHeight() override;
 
+		[[nodiscard]] float getTime() const override;
+
 		// Window attributes
 		void setEventCallback(const EventCallbackFunction& callback) override;
 		void setVSync(bool enabled) override;
@@ -26,6 +30,7 @@ namespace Windows {
 		void shutdown() const;
 
 		GLFWwindow* m_Window{ nullptr };
+		Viking::Ref<Vulkan::Context> m_Context;
 
 		struct WindowData
 		{

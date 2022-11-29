@@ -32,6 +32,10 @@ namespace Windows {
         return m_Data.Height;
     }
 
+    float Window::getTime() const {
+        return static_cast<float>(glfwGetTime());
+    }
+
     void Window::setEventCallback(const EventCallbackFunction& callback) {
         m_Data.EventCallback = callback;
     }
@@ -122,6 +126,7 @@ namespace Windows {
                 data.EventCallback(event);
                 break;
             }
+            default: ;
             }
         });
 
@@ -149,6 +154,7 @@ namespace Windows {
                 data.EventCallback(event);
                 break;
             }
+            default: ;
             }
         });
 
@@ -162,9 +168,12 @@ namespace Windows {
         glfwSetCursorPosCallback(m_Window, [](GLFWwindow* window, double xPos, double yPos) {
             const WindowData& data = *static_cast<WindowData*>(glfwGetWindowUserPointer(window));
 
-            Viking::MouseMovedEvent event(static_cast<float>(xPos), static_cast<float>(yPos));
+            Viking::MouseMovedEvent event(xPos, yPos);
             data.EventCallback(event);
         });
+
+        m_Context = Viking::createRef<Vulkan::Context>();
+        m_Context->createSurface(m_Window);
     }
 
     void Window::shutdown() const {
