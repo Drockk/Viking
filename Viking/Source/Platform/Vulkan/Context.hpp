@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Platform/Vulkan/PhysicalDevice.hpp"
+
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
 
@@ -24,6 +26,10 @@ namespace Vulkan {
         VKAPI_ATTR static VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
         void setupDebugMessenger();
 
+        //Devices
+        Viking::Ref<PhysicalDevice> m_PhysicalDevice;
+
+        //Instances
         inline static VkInstance s_Instance{};
         VkDebugUtilsMessengerEXT m_DebugMessenger{ nullptr };
         inline static VkSurfaceKHR s_Surface{};

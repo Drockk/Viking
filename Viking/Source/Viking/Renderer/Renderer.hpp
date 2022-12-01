@@ -9,21 +9,6 @@
 
 #include <vulkan/vulkan.hpp>
 
-struct QueueFamilyIndices {
-    std::optional<uint32_t> graphicsFamily;
-    std::optional<uint32_t> presentFamily;
-
-    [[nodiscard]] bool isComplete() const {
-        return graphicsFamily.has_value() && presentFamily.has_value();
-    }
-};
-
-struct SwapChainSupportDetails {
-    VkSurfaceCapabilitiesKHR capabilities{};
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentModes;
-};
-
 struct Vertex {
     glm::vec3 pos;
     glm::vec3 color;
@@ -86,12 +71,6 @@ namespace Viking {
         static void drawFrame();
 
     private:
-        static void pickPhysicalDevice();
-        static bool isDeviceSuitable(VkPhysicalDevice device);
-        static QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
-        static bool checkDeviceExtensionSupport(VkPhysicalDevice device);
-        static SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
-        [[nodiscard]] static VkSampleCountFlagBits getMaxUsableSampleCount();
         static void createLogicalDevice();
         static void createSwapChain();
         static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
@@ -135,8 +114,6 @@ namespace Viking {
         static void updateUniformBuffer(uint32_t currentImage);
         static void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
-        inline static VkPhysicalDevice m_PhysicalDevice{ VK_NULL_HANDLE };
-        inline static VkSampleCountFlagBits m_MsaaSamples{ VK_SAMPLE_COUNT_1_BIT };
         inline static VkDevice m_Device{};
         inline static VkQueue m_GraphicsQueue{};
         inline static VkQueue m_PresentQueue{};
