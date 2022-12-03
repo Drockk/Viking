@@ -22,7 +22,6 @@ const std::string MODEL_PATH = "models/viking_room.obj";
 namespace Viking {
 
     void Renderer::init() {
-        createLogicalDevice();
         createSwapChain();
         createImageViews();
         createRenderPass();
@@ -46,94 +45,47 @@ namespace Viking {
     }
 
     void Renderer::cleanup() {
-        vkDeviceWaitIdle(m_Device);
+        const auto device = Vulkan::Context::get()->getDevice()->get();
+        vkDeviceWaitIdle(device);
 
         cleanupSwapChain();
 
-        vkDestroyPipeline(m_Device, m_GraphicsPipeline, nullptr);
-        vkDestroyPipelineLayout(m_Device, m_PipelineLayout, nullptr);
-        vkDestroyRenderPass(m_Device, m_RenderPass, nullptr);
+        vkDestroyPipeline(device, m_GraphicsPipeline, nullptr);
+        vkDestroyPipelineLayout(device, m_PipelineLayout, nullptr);
+        vkDestroyRenderPass(device, m_RenderPass, nullptr);
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            vkDestroyBuffer(m_Device, m_UniformBuffers[i], nullptr);
-            vkFreeMemory(m_Device, m_UniformBuffersMemory[i], nullptr);
+            vkDestroyBuffer(device, m_UniformBuffers[i], nullptr);
+            vkFreeMemory(device, m_UniformBuffersMemory[i], nullptr);
         }
 
-        vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
+        vkDestroyDescriptorPool(device, m_DescriptorPool, nullptr);
 
-        vkDestroySampler(m_Device, m_TextureSampler, nullptr);
-        vkDestroyImageView(m_Device, m_TextureImageView, nullptr);
+        vkDestroySampler(device, m_TextureSampler, nullptr);
+        vkDestroyImageView(device, m_TextureImageView, nullptr);
 
-        vkDestroyImage(m_Device, m_TextureImage, nullptr);
-        vkFreeMemory(m_Device, m_TextureImageMemory, nullptr);
+        vkDestroyImage(device, m_TextureImage, nullptr);
+        vkFreeMemory(device, m_TextureImageMemory, nullptr);
 
-        vkDestroyDescriptorSetLayout(m_Device, m_DescriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(device, m_DescriptorSetLayout, nullptr);
 
-        vkDestroyBuffer(m_Device, m_IndexBuffer, nullptr);
-        vkFreeMemory(m_Device, m_IndexBufferMemory, nullptr);
+        vkDestroyBuffer(device, m_IndexBuffer, nullptr);
+        vkFreeMemory(device, m_IndexBufferMemory, nullptr);
 
-        vkDestroyBuffer(m_Device, m_VertexBuffer, nullptr);
-        vkFreeMemory(m_Device, m_VertexBufferMemory, nullptr);
+        vkDestroyBuffer(device, m_VertexBuffer, nullptr);
+        vkFreeMemory(device, m_VertexBufferMemory, nullptr);
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            vkDestroySemaphore(m_Device, m_RenderFinishedSemaphores[i], nullptr);
-            vkDestroySemaphore(m_Device, m_ImageAvailableSemaphores[i], nullptr);
-            vkDestroyFence(m_Device, m_InFlightFences[i], nullptr);
+            vkDestroySemaphore(device, m_RenderFinishedSemaphores[i], nullptr);
+            vkDestroySemaphore(device, m_ImageAvailableSemaphores[i], nullptr);
+            vkDestroyFence(device, m_InFlightFences[i], nullptr);
         }
 
-        vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
-
-        vkDestroyDevice(m_Device, nullptr);
-    }
-
-    void Renderer::createLogicalDevice() {
-        QueueFamilyIndices indices = findQueueFamilies(m_PhysicalDevice);
-
-        std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-        std::set uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
-
-        auto queuePriority = 1.0f;
-        for (uint32_t queueFamily : uniqueQueueFamilies) {
-            VkDeviceQueueCreateInfo queueCreateInfo{};
-            queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-            queueCreateInfo.queueFamilyIndex = queueFamily;
-            queueCreateInfo.queueCount = 1;
-            queueCreateInfo.pQueuePriorities = &queuePriority;
-            queueCreateInfos.push_back(queueCreateInfo);
-        }
-
-        VkPhysicalDeviceFeatures deviceFeatures{};
-        deviceFeatures.samplerAnisotropy = VK_TRUE;
-
-        VkDeviceCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-
-        createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-        createInfo.pQueueCreateInfos = queueCreateInfos.data();
-
-        createInfo.pEnabledFeatures = &deviceFeatures;
-
-        createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
-        createInfo.ppEnabledExtensionNames = deviceExtensions.data();
-
-        if constexpr (enableValidationLayers) {
-            createInfo.enabledLayerCount = static_cast<uint32_t>(Vulkan::validationLayers.size());
-            createInfo.ppEnabledLayerNames = Vulkan::validationLayers.data();
-        }
-        else {
-            createInfo.enabledLayerCount = 0;
-        }
-
-        if (vkCreateDevice(m_PhysicalDevice, &createInfo, nullptr, &m_Device) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create logical device!");
-        }
-
-        vkGetDeviceQueue(m_Device, indices.graphicsFamily.value(), 0, &m_GraphicsQueue);
-        vkGetDeviceQueue(m_Device, indices.presentFamily.value(), 0, &m_PresentQueue);
+        vkDestroyCommandPool(device, m_CommandPool, nullptr);
     }
 
     void Renderer::createSwapChain() {
-        const SwapChainSupportDetails swapChainSupport = querySwapChainSupport(m_PhysicalDevice);
+        const auto swapChainSupport = Vulkan::Context::get()->getPhysicalDevice()->getSwapChainSupportDetails();
 
         const VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
         const VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
@@ -146,7 +98,7 @@ namespace Viking {
 
         VkSwapchainCreateInfoKHR createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        createInfo.surface = Vulkan::Context::getSurface();
+        createInfo.surface = Vulkan::Context::get()->getSurface();
 
         createInfo.minImageCount = imageCount;
         createInfo.imageFormat = surfaceFormat.format;
@@ -155,7 +107,7 @@ namespace Viking {
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-        const QueueFamilyIndices indices = findQueueFamilies(m_PhysicalDevice);
+        const auto indices = Vulkan::Context::get()->getPhysicalDevice()->getQueueFamilyIndices();
         const uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
         if (indices.graphicsFamily != indices.presentFamily) {
@@ -172,13 +124,14 @@ namespace Viking {
         createInfo.presentMode = presentMode;
         createInfo.clipped = VK_TRUE;
 
-        if (vkCreateSwapchainKHR(m_Device, &createInfo, nullptr, &m_SwapChain) != VK_SUCCESS) {
+        const auto device = Vulkan::Context::get()->getDevice()->get();
+        if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &m_SwapChain) != VK_SUCCESS) {
             throw std::runtime_error("failed to create swap chain!");
         }
 
-        vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &imageCount, nullptr);
+        vkGetSwapchainImagesKHR(device, m_SwapChain, &imageCount, nullptr);
         m_SwapChainImages.resize(imageCount);
-        vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &imageCount, m_SwapChainImages.data());
+        vkGetSwapchainImagesKHR(device, m_SwapChain, &imageCount, m_SwapChainImages.data());
 
         m_SwapChainImageFormat = surfaceFormat.format;
         m_SwapChainExtent = extent;
@@ -245,7 +198,7 @@ namespace Viking {
         viewInfo.subresourceRange.layerCount = 1;
 
         VkImageView imageView;
-        if (vkCreateImageView(m_Device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
+        if (vkCreateImageView(Vulkan::Context::get()->getDevice()->get(), &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
             throw std::runtime_error("failed to create texture image view!");
         }
 
@@ -255,7 +208,7 @@ namespace Viking {
     void Renderer::createRenderPass() {
         VkAttachmentDescription colorAttachment{};
         colorAttachment.format = m_SwapChainImageFormat;
-        colorAttachment.samples = m_MsaaSamples;
+        colorAttachment.samples = Vulkan::Context::get()->getPhysicalDevice()->getMsaaSamples();
         colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -265,7 +218,7 @@ namespace Viking {
 
         VkAttachmentDescription depthAttachment{};
         depthAttachment.format = findDepthFormat();
-        depthAttachment.samples = m_MsaaSamples;
+        depthAttachment.samples = Vulkan::Context::get()->getPhysicalDevice()->getMsaaSamples();
         depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -320,29 +273,13 @@ namespace Viking {
         renderPassInfo.dependencyCount = 1;
         renderPassInfo.pDependencies = &dependency;
 
-        if (vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_RenderPass) != VK_SUCCESS) {
+        if (vkCreateRenderPass(Vulkan::Context::get()->getDevice()->get(), &renderPassInfo, nullptr, &m_RenderPass) != VK_SUCCESS) {
             throw std::runtime_error("failed to create render pass!");
         }
     }
 
     VkFormat Renderer::findDepthFormat() {
-        return findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-    }
-
-    VkFormat Renderer::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
-        for (const VkFormat format : candidates) {
-            VkFormatProperties props;
-            vkGetPhysicalDeviceFormatProperties(m_PhysicalDevice, format, &props);
-
-            if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-                return format;
-            }
-            if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
-                return format;
-            }
-        }
-
-        throw std::runtime_error("failed to find supported format!");
+        return Vulkan::Context::get()->getPhysicalDevice()->findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
     }
 
     void Renderer::createDescriptorSetLayout() {
@@ -366,7 +303,7 @@ namespace Viking {
         layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
         layoutInfo.pBindings = bindings.data();
 
-        if (vkCreateDescriptorSetLayout(m_Device, &layoutInfo, nullptr, &m_DescriptorSetLayout) != VK_SUCCESS) {
+        if (vkCreateDescriptorSetLayout(Vulkan::Context::get()->getDevice()->get(), &layoutInfo, nullptr, &m_DescriptorSetLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor set layout!");
         }
     }
@@ -426,7 +363,7 @@ namespace Viking {
         VkPipelineMultisampleStateCreateInfo multisampling{};
         multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
         multisampling.sampleShadingEnable = VK_FALSE;
-        multisampling.rasterizationSamples = m_MsaaSamples;
+        multisampling.rasterizationSamples = Vulkan::Context::get()->getPhysicalDevice()->getMsaaSamples();
 
         VkPipelineDepthStencilStateCreateInfo depthStencil{};
         depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -465,7 +402,7 @@ namespace Viking {
         pipelineLayoutInfo.setLayoutCount = 1;
         pipelineLayoutInfo.pSetLayouts = &m_DescriptorSetLayout;
 
-        if (vkCreatePipelineLayout(m_Device, &pipelineLayoutInfo, nullptr, &m_PipelineLayout) != VK_SUCCESS) {
+        if (vkCreatePipelineLayout(Vulkan::Context::get()->getDevice()->get(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create pipeline layout!");
         }
 
@@ -486,12 +423,13 @@ namespace Viking {
         pipelineInfo.subpass = 0;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-        if (vkCreateGraphicsPipelines(m_Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_GraphicsPipeline) != VK_SUCCESS) {
+        const auto device = Vulkan::Context::get()->getDevice()->get();
+        if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_GraphicsPipeline) != VK_SUCCESS) {
             throw std::runtime_error("failed to create graphics pipeline!");
         }
 
-        vkDestroyShaderModule(m_Device, fragShaderModule, nullptr);
-        vkDestroyShaderModule(m_Device, vertShaderModule, nullptr);
+        vkDestroyShaderModule(device, fragShaderModule, nullptr);
+        vkDestroyShaderModule(device, vertShaderModule, nullptr);
     }
 
     std::vector<char> Renderer::readFile(const std::string& filename) {
@@ -519,7 +457,7 @@ namespace Viking {
         createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
         VkShaderModule shaderModule;
-        if (vkCreateShaderModule(m_Device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+        if (vkCreateShaderModule(Vulkan::Context::get()->getDevice()->get(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
             throw std::runtime_error("failed to create shader module!");
         }
 
@@ -527,14 +465,14 @@ namespace Viking {
     }
 
     void Renderer::createCommandPool() {
-        const QueueFamilyIndices queueFamilyIndices = findQueueFamilies(m_PhysicalDevice);
+        const auto indices = Vulkan::Context::get()->getPhysicalDevice()->getQueueFamilyIndices();
 
         VkCommandPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+        poolInfo.queueFamilyIndex = indices.graphicsFamily.value();
 
-        if (vkCreateCommandPool(m_Device, &poolInfo, nullptr, &m_CommandPool) != VK_SUCCESS) {
+        if (vkCreateCommandPool(Vulkan::Context::get()->getDevice()->get(), &poolInfo, nullptr, &m_CommandPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create graphics command pool!");
         }
     }
@@ -542,7 +480,7 @@ namespace Viking {
     void Renderer::createColorResources() {
         const VkFormat colorFormat = m_SwapChainImageFormat;
 
-        createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, m_MsaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_ColorImage, m_ColorImageMemory);
+        createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, Vulkan::Context::get()->getPhysicalDevice()->getMsaaSamples(), colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_ColorImage, m_ColorImageMemory);
         m_ColorImageView = createImageView(m_ColorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
     }
 
@@ -564,42 +502,30 @@ namespace Viking {
         imageInfo.samples = numSamples;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-        if (vkCreateImage(m_Device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
+        if (vkCreateImage(Vulkan::Context::get()->getDevice()->get(), &imageInfo, nullptr, &image) != VK_SUCCESS) {
             throw std::runtime_error("failed to create image!");
         }
 
+        const auto device = Vulkan::Context::get()->getDevice()->get();
         VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements(m_Device, image, &memRequirements);
+        vkGetImageMemoryRequirements(device, image, &memRequirements);
 
         VkMemoryAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+        allocInfo.memoryTypeIndex = Vulkan::Context::get()->getPhysicalDevice()->findMemoryType(memRequirements.memoryTypeBits, properties);
 
-        if (vkAllocateMemory(m_Device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+        if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate image memory!");
         }
 
-        vkBindImageMemory(m_Device, image, imageMemory, 0);
-    }
-
-    uint32_t Renderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-        VkPhysicalDeviceMemoryProperties memProperties;
-        vkGetPhysicalDeviceMemoryProperties(m_PhysicalDevice, &memProperties);
-
-        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-            if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-                return i;
-            }
-        }
-
-        throw std::runtime_error("failed to find suitable memory type!");
+        vkBindImageMemory(device, image, imageMemory, 0);
     }
 
     void Renderer::createDepthResources() {
         const VkFormat depthFormat = findDepthFormat();
 
-        createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, m_MsaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
+        createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, Vulkan::Context::get()->getPhysicalDevice()->getMsaaSamples(), depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
         m_DepthImageView = createImageView(m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
     }
 
@@ -622,7 +548,7 @@ namespace Viking {
             framebufferInfo.height = m_SwapChainExtent.height;
             framebufferInfo.layers = 1;
 
-            if (vkCreateFramebuffer(m_Device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
+            if (vkCreateFramebuffer(Vulkan::Context::get()->getDevice()->get(), &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create framebuffer!");
             }
         }
@@ -643,9 +569,10 @@ namespace Viking {
         createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
         void* data;
-        vkMapMemory(m_Device, stagingBufferMemory, 0, imageSize, 0, &data);
+        const auto device = Vulkan::Context::get()->getDevice()->get();
+        vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
         memcpy(data, pixels, imageSize);
-        vkUnmapMemory(m_Device, stagingBufferMemory);
+        vkUnmapMemory(device, stagingBufferMemory);
 
         stbi_image_free(pixels);
 
@@ -655,8 +582,8 @@ namespace Viking {
         copyBufferToImage(stagingBuffer, m_TextureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
         //transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
 
-        vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-        vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
 
         generateMipmaps(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, m_MipLevels);
     }
@@ -673,23 +600,24 @@ namespace Viking {
         bufferInfo.usage = usage;
         bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-        if (vkCreateBuffer(m_Device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+        const auto device = Vulkan::Context::get()->getDevice()->get();
+        if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to create buffer!");
         }
 
         VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(m_Device, buffer, &memRequirements);
+        vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
 
         VkMemoryAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+        allocInfo.memoryTypeIndex = Vulkan::Context::get()->getPhysicalDevice()->findMemoryType(memRequirements.memoryTypeBits, properties);
 
-        if (vkAllocateMemory(m_Device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+        if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate buffer memory!");
         }
 
-        vkBindBufferMemory(m_Device, buffer, bufferMemory, 0);
+        vkBindBufferMemory(device, buffer, bufferMemory, 0);
     }
 
     void Renderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
@@ -742,9 +670,10 @@ namespace Viking {
         allocInfo.commandPool = m_CommandPool;
         allocInfo.commandBufferCount = 1;
 
+        const auto device = Vulkan::Context::get()->getDevice()->get();
         VkCommandBuffer commandBuffer;
-        vkAllocateCommandBuffers(m_Device, &allocInfo, &commandBuffer);
-        vkAllocateCommandBuffers(m_Device, &allocInfo, &commandBuffer);
+        vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+        vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -763,10 +692,12 @@ namespace Viking {
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &commandBuffer;
 
-        vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(m_GraphicsQueue);
+        const auto [graphicsQueue, presentQueue] = Vulkan::Context::get()->getDevice()->getQueues();
 
-        vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &commandBuffer);
+        vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(graphicsQueue);
+
+        vkFreeCommandBuffers(Vulkan::Context::get()->getDevice()->get(), m_CommandPool, 1, &commandBuffer);
     }
 
     void Renderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
@@ -796,7 +727,7 @@ namespace Viking {
         uint32_t mipLevels) {
         // Check if image format supports linear blitting
         VkFormatProperties formatProperties;
-        vkGetPhysicalDeviceFormatProperties(m_PhysicalDevice, imageFormat, &formatProperties);
+        vkGetPhysicalDeviceFormatProperties(Vulkan::Context::get()->getPhysicalDevice()->get(), imageFormat, &formatProperties);
 
         if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
             throw std::runtime_error("texture image format does not support linear blitting!");
@@ -882,7 +813,7 @@ namespace Viking {
 
     void Renderer::createTextureSampler() {
         VkPhysicalDeviceProperties properties{};
-        vkGetPhysicalDeviceProperties(m_PhysicalDevice, &properties);
+        vkGetPhysicalDeviceProperties(Vulkan::Context::get()->getPhysicalDevice()->get(), &properties);
 
         VkSamplerCreateInfo samplerInfo{};
         samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -902,7 +833,7 @@ namespace Viking {
         samplerInfo.maxLod = static_cast<float>(m_MipLevels);
         samplerInfo.mipLodBias = 0.0f;
 
-        if (vkCreateSampler(m_Device, &samplerInfo, nullptr, &m_TextureSampler) != VK_SUCCESS) {
+        if (vkCreateSampler(Vulkan::Context::get()->getDevice()->get(), &samplerInfo, nullptr, &m_TextureSampler) != VK_SUCCESS) {
             throw std::runtime_error("failed to create texture sampler!");
         }
     }
@@ -955,16 +886,17 @@ namespace Viking {
         createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
         void* data;
-        vkMapMemory(m_Device, stagingBufferMemory, 0, bufferSize, 0, &data);
+        const auto device = Vulkan::Context::get()->getDevice()->get();
+        vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
         memcpy(data, m_Vertices.data(), bufferSize);
-        vkUnmapMemory(m_Device, stagingBufferMemory);
+        vkUnmapMemory(device, stagingBufferMemory);
 
         createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_VertexBuffer, m_VertexBufferMemory);
 
         copyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
 
-        vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-        vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
     }
 
     void Renderer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
@@ -984,17 +916,18 @@ namespace Viking {
         VkDeviceMemory stagingBufferMemory;
         createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
+        const auto device = Vulkan::Context::get()->getDevice()->get();
         void* data;
-        vkMapMemory(m_Device, stagingBufferMemory, 0, bufferSize, 0, &data);
+        vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
         memcpy(data, m_Indices.data(), bufferSize);
-        vkUnmapMemory(m_Device, stagingBufferMemory);
+        vkUnmapMemory(device, stagingBufferMemory);
 
         createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_IndexBuffer, m_IndexBufferMemory);
 
         copyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
 
-        vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-        vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
     }
 
     void Renderer::createUniformBuffers() {
@@ -1006,7 +939,7 @@ namespace Viking {
             constexpr VkDeviceSize bufferSize = sizeof(UniformBufferObject);
             createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_UniformBuffers[i], m_UniformBuffersMemory[i]);
 
-            vkMapMemory(m_Device, m_UniformBuffersMemory[i], 0, bufferSize, 0, &m_UniformBuffersMapped[i]);
+            vkMapMemory(Vulkan::Context::get()->getDevice()->get(), m_UniformBuffersMemory[i], 0, bufferSize, 0, &m_UniformBuffersMapped[i]);
         }
     }
 
@@ -1023,7 +956,7 @@ namespace Viking {
         poolInfo.pPoolSizes = poolSizes.data();
         poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-        if (vkCreateDescriptorPool(m_Device, &poolInfo, nullptr, &m_DescriptorPool) != VK_SUCCESS) {
+        if (vkCreateDescriptorPool(Vulkan::Context::get()->getDevice()->get(), &poolInfo, nullptr, &m_DescriptorPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor pool!");
         }
     }
@@ -1035,9 +968,10 @@ namespace Viking {
         allocInfo.descriptorPool = m_DescriptorPool;
         allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
         allocInfo.pSetLayouts = layouts.data();
+        const auto device = Vulkan::Context::get()->getDevice()->get();
 
         m_DescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-        if (vkAllocateDescriptorSets(m_Device, &allocInfo, m_DescriptorSets.data()) != VK_SUCCESS) {
+        if (vkAllocateDescriptorSets(device, &allocInfo, m_DescriptorSets.data()) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate descriptor sets!");
         }
 
@@ -1070,7 +1004,7 @@ namespace Viking {
             descriptorWrites[1].descriptorCount = 1;
             descriptorWrites[1].pImageInfo = &imageInfo;
 
-            vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+            vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
         }
     }
 
@@ -1083,7 +1017,7 @@ namespace Viking {
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandBufferCount = static_cast<uint32_t>(m_CommandBuffers.size());
 
-        if (vkAllocateCommandBuffers(m_Device, &allocInfo, m_CommandBuffers.data()) != VK_SUCCESS) {
+        if (vkAllocateCommandBuffers(Vulkan::Context::get()->getDevice()->get(), &allocInfo, m_CommandBuffers.data()) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate command buffers!");
         }
     }
@@ -1100,10 +1034,12 @@ namespace Viking {
         fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
+        const auto device = Vulkan::Context::get()->getDevice()->get();
+
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            if (vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_ImageAvailableSemaphores[i]) != VK_SUCCESS ||
-                vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_RenderFinishedSemaphores[i]) != VK_SUCCESS ||
-                vkCreateFence(m_Device, &fenceInfo, nullptr, &m_InFlightFences[i]) != VK_SUCCESS) {
+            if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &m_ImageAvailableSemaphores[i]) != VK_SUCCESS ||
+                vkCreateSemaphore(device, &semaphoreInfo, nullptr, &m_RenderFinishedSemaphores[i]) != VK_SUCCESS ||
+                vkCreateFence(device, &fenceInfo, nullptr, &m_InFlightFences[i]) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create synchronization objects for a frame!");
             }
         }
@@ -1120,7 +1056,7 @@ namespace Viking {
             Application::get()->getWindow()->onUpdate();
         }
 
-        vkDeviceWaitIdle(m_Device);
+        vkDeviceWaitIdle(Vulkan::Context::get()->getDevice()->get());
 
         cleanupSwapChain();
 
@@ -1132,23 +1068,24 @@ namespace Viking {
     }
 
     void Renderer::cleanupSwapChain() {
-        vkDestroyImageView(m_Device, m_DepthImageView, nullptr);
-        vkDestroyImage(m_Device, m_DepthImage, nullptr);
-        vkFreeMemory(m_Device, m_DepthImageMemory, nullptr);
+        const auto device = Vulkan::Context::get()->getDevice()->get();
+        vkDestroyImageView(device, m_DepthImageView, nullptr);
+        vkDestroyImage(device, m_DepthImage, nullptr);
+        vkFreeMemory(device, m_DepthImageMemory, nullptr);
 
-        vkDestroyImageView(m_Device, m_ColorImageView, nullptr);
-        vkDestroyImage(m_Device, m_ColorImage, nullptr);
-        vkFreeMemory(m_Device, m_ColorImageMemory, nullptr);
+        vkDestroyImageView(device, m_ColorImageView, nullptr);
+        vkDestroyImage(device, m_ColorImage, nullptr);
+        vkFreeMemory(device, m_ColorImageMemory, nullptr);
 
         for (const auto framebuffer : swapChainFramebuffers) {
-            vkDestroyFramebuffer(m_Device, framebuffer, nullptr);
+            vkDestroyFramebuffer(device, framebuffer, nullptr);
         }
 
         for (const auto imageView : swapChainImageViews) {
-            vkDestroyImageView(m_Device, imageView, nullptr);
+            vkDestroyImageView(device, imageView, nullptr);
         }
 
-        vkDestroySwapchainKHR(m_Device, m_SwapChain, nullptr);
+        vkDestroySwapchainKHR(device, m_SwapChain, nullptr);
     }
 
     void Renderer::updateUniformBuffer(uint32_t currentImage) {
@@ -1223,10 +1160,11 @@ namespace Viking {
     }
 
     void Renderer::drawFrame() {
-        vkWaitForFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
+        const auto device = Vulkan::Context::get()->getDevice()->get();
+        vkWaitForFences(device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
         uint32_t imageIndex;
-        VkResult result = vkAcquireNextImageKHR(m_Device, m_SwapChain, UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
+        VkResult result = vkAcquireNextImageKHR(device, m_SwapChain, UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
             recreateSwapChain();
@@ -1238,7 +1176,7 @@ namespace Viking {
 
         updateUniformBuffer(m_CurrentFrame);
 
-        vkResetFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame]);
+        vkResetFences(device, 1, &m_InFlightFences[m_CurrentFrame]);
 
         vkResetCommandBuffer(m_CommandBuffers[m_CurrentFrame], /*VkCommandBufferResetFlagBits*/ 0);
         recordCommandBuffer(m_CommandBuffers[m_CurrentFrame], imageIndex);
@@ -1259,7 +1197,9 @@ namespace Viking {
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
 
-        if (vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, m_InFlightFences[m_CurrentFrame]) != VK_SUCCESS) {
+        const auto [graphicsQueue, presentQueue] = Vulkan::Context::get()->getDevice()->getQueues();
+
+        if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, m_InFlightFences[m_CurrentFrame]) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit draw command buffer!");
         }
 
@@ -1275,7 +1215,7 @@ namespace Viking {
 
         presentInfo.pImageIndices = &imageIndex;
 
-        result = vkQueuePresentKHR(m_PresentQueue, &presentInfo);
+        result = vkQueuePresentKHR(presentQueue, &presentInfo);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_FramebufferResized) {
             m_FramebufferResized = false;

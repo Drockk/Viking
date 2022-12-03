@@ -1,24 +1,27 @@
 #pragma once
 
+#include "Platform/Vulkan/Device.hpp"
 #include "Platform/Vulkan/PhysicalDevice.hpp"
 
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
 
 namespace Vulkan {
-    const std::vector validationLayers = {
-        "VK_LAYER_KHRONOS_validation"
-    };
-
     class Context {
     public:
         Context();
         ~Context();
 
-        void createSurface(GLFWwindow* window);
+        static Context* get();
 
-        static VkInstance getInstance();
-        static VkSurfaceKHR getSurface();
+        void createSurface(GLFWwindow* window);
+        void createPhysicalDevice();
+        void createDevice();
+
+        [[nodiscard]] VkInstance getInstance() const;
+        [[nodiscard]] VkSurfaceKHR getSurface() const;
+        Viking::Ref<PhysicalDevice> getPhysicalDevice();
+        Viking::Ref<Device> getDevice();
     private:
         static bool checkValidationLayerSupport();
         static std::vector<const char*> getRequiredExtensions();
@@ -28,10 +31,13 @@ namespace Vulkan {
 
         //Devices
         Viking::Ref<PhysicalDevice> m_PhysicalDevice;
+        Viking::Ref<Device> m_Device;
 
         //Instances
-        inline static VkInstance s_Instance{};
+        VkInstance m_Instance{};
         VkDebugUtilsMessengerEXT m_DebugMessenger{ nullptr };
-        inline static VkSurfaceKHR s_Surface{};
+        VkSurfaceKHR m_Surface{};
+
+        inline static Context* s_Context{ nullptr };
     };
 }

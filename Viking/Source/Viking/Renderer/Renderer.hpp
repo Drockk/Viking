@@ -71,7 +71,6 @@ namespace Viking {
         static void drawFrame();
 
     private:
-        static void createLogicalDevice();
         static void createSwapChain();
         static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
         static VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
@@ -80,7 +79,6 @@ namespace Viking {
         static VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
         static void createRenderPass();
         [[nodiscard]] static VkFormat findDepthFormat();
-        [[nodiscard]] static VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
         static void createDescriptorSetLayout();
         static void createGraphicsPipeline();
         static std::vector<char> readFile(const std::string& filename);
@@ -88,7 +86,6 @@ namespace Viking {
         static void createCommandPool();
         static void createColorResources();
         static void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-        [[nodiscard]] static uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
         static void createDepthResources();
         static void createFramebuffers();
         static void createTextureImage();
@@ -114,9 +111,6 @@ namespace Viking {
         static void updateUniformBuffer(uint32_t currentImage);
         static void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
-        inline static VkDevice m_Device{};
-        inline static VkQueue m_GraphicsQueue{};
-        inline static VkQueue m_PresentQueue{};
         inline static VkSwapchainKHR m_SwapChain{};
         inline static std::vector<VkImage> m_SwapChainImages;
         inline static VkFormat m_SwapChainImageFormat{};

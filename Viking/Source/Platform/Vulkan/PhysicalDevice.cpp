@@ -1,15 +1,12 @@
 #include "vipch.hpp"
 #include "Platform/Vulkan/Context.hpp"
 #include "Platform/Vulkan/PhysicalDevice.hpp"
-
-const std::vector deviceExtensions = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME
-};
+#include "Platform/Vulkan/Utils.hpp"
 
 namespace Vulkan {
     PhysicalDevice::PhysicalDevice() {
         uint32_t deviceCount{ 0 };
-        const auto instance = Context::getInstance();
+        const auto instance = Context::get()->getInstance();
         vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
         if (deviceCount == 0) {
@@ -30,6 +27,54 @@ namespace Vulkan {
         if (m_PhysicalDevice == VK_NULL_HANDLE) {
             throw std::runtime_error("failed to find a suitable GPU!");
         }
+
+        m_QueueFamilyIndices = findQueueFamilies(m_PhysicalDevice);
+        m_SwapChainSupportDetails = querySwapChainSupport(m_PhysicalDevice);
+    }
+
+    VkPhysicalDevice PhysicalDevice::get() const {
+        return m_PhysicalDevice;
+    }
+
+    VkSampleCountFlagBits PhysicalDevice::getMsaaSamples() const {
+        return m_MsaaSamples;
+    }
+
+    QueueFamilyIndices PhysicalDevice::getQueueFamilyIndices() const {
+        return m_QueueFamilyIndices;
+    }
+
+    SwapChainSupportDetails PhysicalDevice::getSwapChainSupportDetails() const {
+        return m_SwapChainSupportDetails;
+    }
+
+    uint32_t PhysicalDevice::findMemoryType(const uint32_t typeFilter, const VkMemoryPropertyFlags properties) const {
+        VkPhysicalDeviceMemoryProperties memoryProperties;
+        vkGetPhysicalDeviceMemoryProperties(m_PhysicalDevice, &memoryProperties);
+
+        for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; i++) {
+            if (typeFilter & 1 << i && (memoryProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+                return i;
+            }
+        }
+
+        throw std::runtime_error("failed to find suitable memory type!");
+    }
+
+    VkFormat PhysicalDevice::findSupportedFormat(const std::vector<VkFormat>& candidates, const VkImageTiling tiling, const VkFormatFeatureFlags features) const {
+        for (const VkFormat format : candidates) {
+            VkFormatProperties props;
+            vkGetPhysicalDeviceFormatProperties(m_PhysicalDevice, format, &props);
+
+            if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+                return format;
+            }
+            if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+                return format;
+            }
+        }
+
+        throw std::runtime_error("failed to find supported format!");
     }
 
     bool PhysicalDevice::isDeviceSuitable(VkPhysicalDevice device) {
@@ -49,10 +94,10 @@ namespace Vulkan {
         return indices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
     }
 
-    QueueFamilyIndices PhysicalDevice::findQueueFamilies(VkPhysicalDevice device) {
+    QueueFamilyIndices PhysicalDevice::findQueueFamilies(const VkPhysicalDevice device) {
         QueueFamilyIndices indices;
 
-        const auto surface = Context::getSurface();
+        const auto surface = Context::get()->getSurface();
 
         uint32_t queueFamilyCount = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
@@ -83,14 +128,14 @@ namespace Vulkan {
         return indices;
     }
 
-    bool PhysicalDevice::checkDeviceExtensionSupport(VkPhysicalDevice device) {
+    bool PhysicalDevice::checkDeviceExtensionSupport(const VkPhysicalDevice device) {
         uint32_t extensionCount;
         vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
         std::vector<VkExtensionProperties> availableExtensions(extensionCount);
         vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
-        std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+        std::set<std::string> requiredExtensions(DEVICE_EXTENSIONS.begin(), DEVICE_EXTENSIONS.end());
 
         for (const auto& extension : availableExtensions) {
             requiredExtensions.erase(extension.extensionName);
@@ -99,10 +144,10 @@ namespace Vulkan {
         return requiredExtensions.empty();
     }
 
-    SwapChainSupportDetails PhysicalDevice::querySwapChainSupport(VkPhysicalDevice device) {
+    SwapChainSupportDetails PhysicalDevice::querySwapChainSupport(const VkPhysicalDevice device) {
         SwapChainSupportDetails details;
 
-        const auto surface = Context::getSurface();
+        const auto surface = Context::get()->getSurface();
 
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
 

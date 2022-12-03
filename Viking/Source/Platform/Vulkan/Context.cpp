@@ -1,5 +1,6 @@
 #include "vipch.hpp"
 #include "Platform/Vulkan/Context.hpp"
+#include "Platform/Vulkan/Utils.hpp"
 
 VkResult createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
     const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
@@ -10,7 +11,7 @@ VkResult createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMes
     return VK_ERROR_EXTENSION_NOT_PRESENT;
 }
 
-void destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
+void destroyDebugUtilsMessengerEXT(const VkInstance instance, const VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
     if (const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT")); func != nullptr) {
         func(instance, debugMessenger, pAllocator);
     }
@@ -40,8 +41,8 @@ namespace Vulkan {
 
         VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
         if constexpr (enableValidationLayers) {
-            createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-            createInfo.ppEnabledLayerNames = validationLayers.data();
+            createInfo.enabledLayerCount = static_cast<uint32_t>(VALIDATION_LAYERS.size());
+            createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
 
             populateDebugMessengerCreateInfo(debugCreateInfo);
             createInfo.pNext = &debugCreateInfo;
@@ -52,32 +53,54 @@ namespace Vulkan {
             createInfo.pNext = nullptr;
         }
 
-        if (vkCreateInstance(&createInfo, nullptr, &s_Instance) != VK_SUCCESS) {
+        if (vkCreateInstance(&createInfo, nullptr, &m_Instance) != VK_SUCCESS) {
             throw std::runtime_error("failed to create instance!");
         }
+
+        s_Context = this;
     }
 
     Context::~Context() {
         if (enableValidationLayers) {
-            destroyDebugUtilsMessengerEXT(s_Instance, m_DebugMessenger, nullptr);
+            destroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
         }
 
-        vkDestroySurfaceKHR(s_Instance, s_Surface, nullptr);
-        vkDestroyInstance(s_Instance, nullptr);
+        vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
+        vkDestroyInstance(m_Instance, nullptr);
+    }
+
+    Context* Context::get() {
+        return s_Context;
     }
 
     void Context::createSurface(GLFWwindow* window) {
-        if (glfwCreateWindowSurface(s_Instance, window, nullptr, &s_Surface) != VK_SUCCESS) {
+        if (glfwCreateWindowSurface(m_Instance, window, nullptr, &m_Surface) != VK_SUCCESS) {
             throw std::runtime_error("failed to create window surface!");
         }
     }
 
-    VkInstance Context::getInstance() {
-        return s_Instance;
+    void Context::createPhysicalDevice() {
+        m_PhysicalDevice = Viking::createRef<PhysicalDevice>();
     }
 
-    VkSurfaceKHR Context::getSurface() {
-        return s_Surface;
+    void Context::createDevice() {
+        m_Device = Viking::createRef<Device>(m_PhysicalDevice);
+    }
+
+    VkInstance Context::getInstance() const {
+        return m_Instance;
+    }
+
+    VkSurfaceKHR Context::getSurface() const {
+        return m_Surface;
+    }
+
+    Viking::Ref<PhysicalDevice> Context::getPhysicalDevice() {
+        return m_PhysicalDevice;
+    }
+
+    Viking::Ref<Device> Context::getDevice() {
+        return m_Device;
     }
 
     bool Context::checkValidationLayerSupport() {
@@ -87,7 +110,7 @@ namespace Vulkan {
         std::vector<VkLayerProperties> availableLayers(layerCount);
         vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-        for (const char* layerName : validationLayers) {
+        for (const char* layerName : VALIDATION_LAYERS) {
             auto layerFound = false;
 
             for (const auto& layerProperties : availableLayers) {
@@ -139,7 +162,7 @@ namespace Vulkan {
         VkDebugUtilsMessengerCreateInfoEXT createInfo;
         populateDebugMessengerCreateInfo(createInfo);
 
-        if (createDebugUtilsMessengerEXT(s_Instance, &createInfo, nullptr, &m_DebugMessenger) != VK_SUCCESS) {
+        if (createDebugUtilsMessengerEXT(m_Instance, &createInfo, nullptr, &m_DebugMessenger) != VK_SUCCESS) {
             throw std::runtime_error("failed to set up debug messenger!");
         }
     }

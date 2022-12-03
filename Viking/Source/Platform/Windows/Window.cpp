@@ -174,6 +174,8 @@ namespace Windows {
 
         m_Context = Viking::createRef<Vulkan::Context>();
         m_Context->createSurface(m_Window);
+        m_Context->createPhysicalDevice();
+        m_Context->createDevice();
     }
 
     void Window::shutdown() const {

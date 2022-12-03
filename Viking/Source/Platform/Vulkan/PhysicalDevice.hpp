@@ -23,6 +23,13 @@ namespace Vulkan {
 		PhysicalDevice();
 		~PhysicalDevice() = default;
 
+		[[nodiscard]] VkPhysicalDevice get() const;
+		[[nodiscard]] VkSampleCountFlagBits getMsaaSamples() const;
+		[[nodiscard]] QueueFamilyIndices getQueueFamilyIndices() const;
+		[[nodiscard]] SwapChainSupportDetails getSwapChainSupportDetails() const;
+		[[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
+		[[nodiscard]] VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
+
 	private:
 		static bool isDeviceSuitable(VkPhysicalDevice device);
 		static QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
@@ -32,5 +39,7 @@ namespace Vulkan {
 
 		VkPhysicalDevice m_PhysicalDevice{ VK_NULL_HANDLE };
 		VkSampleCountFlagBits m_MsaaSamples{ VK_SAMPLE_COUNT_1_BIT };
+		QueueFamilyIndices m_QueueFamilyIndices;
+		SwapChainSupportDetails m_SwapChainSupportDetails;
 	};
 }
