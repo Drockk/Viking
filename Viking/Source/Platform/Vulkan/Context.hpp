@@ -21,7 +21,7 @@ namespace Vulkan {
         [[nodiscard]] VkInstance getInstance() const;
         [[nodiscard]] VkSurfaceKHR getSurface() const;
         Viking::Ref<PhysicalDevice> getPhysicalDevice();
-        Viking::Ref<Device> getDevice();
+        Viking::Ref<Device>& getDevice();
     private:
         static bool checkValidationLayerSupport();
         static std::vector<const char*> getRequiredExtensions();

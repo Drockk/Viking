@@ -11,6 +11,8 @@
 
 #include "Viking/Renderer/Mesh.hpp"
 
+#include "Platform/Vulkan/Buffer.hpp"
+
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
@@ -28,6 +30,9 @@ namespace Viking {
 
     private:
         inline static Ref<Mesh> m_Mesh{};
+        inline static Ref<Vulkan::Buffer> m_VertexBuffer;
+        inline static Ref<Vulkan::Buffer> m_IndexBuffer;
+        inline static std::vector<Ref<Vulkan::Buffer>> m_UniformBuffers;
 
         static void createSwapChain();
         static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
@@ -48,7 +53,6 @@ namespace Viking {
         static void createFramebuffers();
         static void createTextureImage();
         static void createTextureImageView();
-        static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
         static void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
         [[nodiscard]] static VkCommandBuffer beginSingleTimeCommands();
         static void endSingleTimeCommands(VkCommandBuffer commandBuffer);
@@ -90,12 +94,6 @@ namespace Viking {
         inline static VkDeviceMemory m_TextureImageMemory{};
         inline static VkImageView m_TextureImageView{};
         inline static VkSampler m_TextureSampler{};
-        inline static VkBuffer m_VertexBuffer{};
-        inline static VkDeviceMemory m_VertexBufferMemory{};
-        inline static VkBuffer m_IndexBuffer{};
-        inline static VkDeviceMemory m_IndexBufferMemory{};
-        inline static std::vector<VkBuffer> m_UniformBuffers;
-        inline static std::vector<VkDeviceMemory> m_UniformBuffersMemory;
         inline static std::vector<void*> m_UniformBuffersMapped;
         inline static VkDescriptorPool m_DescriptorPool{};
         inline static std::vector<VkDescriptorSet> m_DescriptorSets;

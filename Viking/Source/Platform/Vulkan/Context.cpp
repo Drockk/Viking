@@ -99,7 +99,7 @@ namespace Vulkan {
         return m_PhysicalDevice;
     }
 
-    Viking::Ref<Device> Context::getDevice() {
+    Viking::Ref<Device>& Context::getDevice() {
         return m_Device;
     }
 
