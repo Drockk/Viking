@@ -9,51 +9,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-struct Vertex {
-    glm::vec3 pos;
-    glm::vec3 color;
-    glm::vec2 texCoord;
-
-    static VkVertexInputBindingDescription getBindingDescription() {
-        VkVertexInputBindingDescription bindingDescription;
-        bindingDescription.binding = 0;
-        bindingDescription.stride = sizeof(Vertex);
-        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        return bindingDescription;
-    }
-
-    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
-
-        attributeDescriptions[0].binding = 0;
-        attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[0].offset = offsetof(Vertex, pos);
-
-        attributeDescriptions[1].binding = 0;
-        attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-        attributeDescriptions[2].binding = 0;
-        attributeDescriptions[2].location = 2;
-        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-
-        return attributeDescriptions;
-    }
-
-    bool operator==(const Vertex& other) const {
-        return pos == other.pos && color == other.color && texCoord == other.texCoord;
-    }
-};
-
-template<> struct std::hash<Vertex> {
-    size_t operator()(Vertex const& vertex) const noexcept {
-        return (hash<glm::vec3>()(vertex.pos) ^ hash<glm::vec3>()(vertex.color) << 1) >> 1 ^ hash<glm::vec2>()(vertex.texCoord) << 1;
-    }
-};
+#include "Viking/Renderer/Mesh.hpp"
 
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;
@@ -71,6 +27,8 @@ namespace Viking {
         static void drawFrame();
 
     private:
+        inline static Ref<Mesh> m_Mesh{};
+
         static void createSwapChain();
         static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
         static VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
@@ -97,7 +55,6 @@ namespace Viking {
         static void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
         static void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
         static void createTextureSampler();
-        static void loadModel();
         static void createVertexBuffer();
         static void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
         static void createIndexBuffer();
@@ -133,8 +90,6 @@ namespace Viking {
         inline static VkDeviceMemory m_TextureImageMemory{};
         inline static VkImageView m_TextureImageView{};
         inline static VkSampler m_TextureSampler{};
-        inline static std::vector<Vertex> m_Vertices;
-        inline static std::vector<uint32_t> m_Indices;
         inline static VkBuffer m_VertexBuffer{};
         inline static VkDeviceMemory m_VertexBufferMemory{};
         inline static VkBuffer m_IndexBuffer{};

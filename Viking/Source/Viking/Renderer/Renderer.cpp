@@ -6,9 +6,6 @@
 
 #include <GLFW/glfw3.h>
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
-
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -34,7 +31,9 @@ namespace Viking {
         createTextureImage();
         createTextureImageView();
         createTextureSampler();
-        loadModel();
+
+        m_Mesh = createRef<Mesh>(MODEL_PATH);
+
         createVertexBuffer();
         createIndexBuffer();
         createUniformBuffers();
@@ -838,48 +837,8 @@ namespace Viking {
         }
     }
 
-    void Renderer::loadModel() {
-        tinyobj::attrib_t attrib;
-        std::vector<tinyobj::shape_t> shapes;
-        std::vector<tinyobj::material_t> materials;
-        std::string err;
-
-        if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, MODEL_PATH.c_str())) {
-            std::string warn;
-            throw std::runtime_error(warn + err);
-        }
-
-        std::unordered_map<Vertex, uint32_t> uniqueVertices{};
-
-        for (const auto& shape : shapes) {
-            for (const auto& index : shape.mesh.indices) {
-                Vertex vertex{};
-
-                vertex.pos = {
-                    attrib.vertices[3 * index.vertex_index + 0],
-                    attrib.vertices[3 * index.vertex_index + 1],
-                    attrib.vertices[3 * index.vertex_index + 2]
-                };
-
-                vertex.texCoord = {
-                    attrib.texcoords[2 * index.texcoord_index + 0],
-                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-                };
-
-                vertex.color = { 1.0f, 1.0f, 1.0f };
-
-                if (uniqueVertices.count(vertex) == 0) {
-                    uniqueVertices[vertex] = static_cast<uint32_t>(m_Vertices.size());
-                    m_Vertices.push_back(vertex);
-                }
-
-                m_Indices.push_back(uniqueVertices[vertex]);
-            }
-        }
-    }
-
     void Renderer::createVertexBuffer() {
-        const VkDeviceSize bufferSize = sizeof(m_Vertices[0]) * m_Vertices.size();
+        const VkDeviceSize bufferSize = sizeof m_Mesh->getVertices()[0] * m_Mesh->getVertices().size();
 
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
@@ -888,7 +847,7 @@ namespace Viking {
         void* data;
         const auto device = Vulkan::Context::get()->getDevice()->get();
         vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-        memcpy(data, m_Vertices.data(), bufferSize);
+        memcpy(data, m_Mesh->getVertices().data(), bufferSize);
         vkUnmapMemory(device, stagingBufferMemory);
 
         createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_VertexBuffer, m_VertexBufferMemory);
@@ -910,7 +869,7 @@ namespace Viking {
     }
 
     void Renderer::createIndexBuffer() {
-        const VkDeviceSize bufferSize = sizeof(m_Indices[0]) * m_Indices.size();
+        const VkDeviceSize bufferSize = sizeof m_Mesh->getIndices()[0] * m_Mesh->getIndices().size();
 
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
@@ -919,7 +878,7 @@ namespace Viking {
         const auto device = Vulkan::Context::get()->getDevice()->get();
         void* data;
         vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-        memcpy(data, m_Indices.data(), bufferSize);
+        memcpy(data, m_Mesh->getIndices().data(), bufferSize);
         vkUnmapMemory(device, stagingBufferMemory);
 
         createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_IndexBuffer, m_IndexBufferMemory);
@@ -1102,7 +1061,7 @@ namespace Viking {
         memcpy(m_UniformBuffersMapped[currentImage], &ubo, sizeof ubo);
     }
 
-    void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+    void Renderer::recordCommandBuffer(const VkCommandBuffer commandBuffer, const uint32_t imageIndex) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -1150,7 +1109,7 @@ namespace Viking {
 
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Renderer::m_PipelineLayout, 0, 1, &m_DescriptorSets[m_CurrentFrame], 0, nullptr);
 
-        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Indices.size()), 1, 0, 0, 0);
+        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Mesh->getIndices().size()), 1, 0, 0, 0);
 
         vkCmdEndRenderPass(commandBuffer);
 
