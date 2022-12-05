@@ -24,7 +24,6 @@ namespace Viking {
         createRenderPass();
         createDescriptorSetLayout();
         createGraphicsPipeline();
-        createCommandPool();
         createColorResources();
         createDepthResources();
         createFramebuffers();
@@ -34,8 +33,6 @@ namespace Viking {
 
         m_Mesh = createRef<Mesh>(MODEL_PATH);
 
-        createVertexBuffer();
-        createIndexBuffer();
         createUniformBuffers();
         createDescriptorPool();
         createDescriptorSets();
@@ -68,20 +65,18 @@ namespace Viking {
             vkDestroySemaphore(device, m_ImageAvailableSemaphores[i], nullptr);
             vkDestroyFence(device, m_InFlightFences[i], nullptr);
         }
-
-        vkDestroyCommandPool(device, m_CommandPool, nullptr);
     }
 
     void Renderer::createSwapChain() {
-        const auto swapChainSupport = Vulkan::Context::get()->getPhysicalDevice()->getSwapChainSupportDetails();
+        const auto [capabilities, formats, presentModes] = Vulkan::Context::get()->getPhysicalDevice()->getSwapChainSupportDetails();
 
-        const VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
-        const VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-        const VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+        const VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(formats);
+        const VkPresentModeKHR presentMode = chooseSwapPresentMode(presentModes);
+        const VkExtent2D extent = chooseSwapExtent(capabilities);
 
-        uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
-        if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
-            imageCount = swapChainSupport.capabilities.maxImageCount;
+        uint32_t imageCount = capabilities.minImageCount + 1;
+        if (capabilities.maxImageCount > 0 && imageCount > capabilities.maxImageCount) {
+            imageCount = capabilities.maxImageCount;
         }
 
         VkSwapchainCreateInfoKHR createInfo{};
@@ -107,7 +102,7 @@ namespace Viking {
             createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         }
 
-        createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
+        createInfo.preTransform = capabilities.currentTransform;
         createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         createInfo.presentMode = presentMode;
         createInfo.clipped = VK_TRUE;
@@ -172,8 +167,7 @@ namespace Viking {
         }
     }
 
-    VkImageView Renderer::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
-        uint32_t mipLevels) {
+    VkImageView Renderer::createImageView(const VkImage image, const VkFormat format, const VkImageAspectFlags aspectFlags, const uint32_t mipLevels) {
         VkImageViewCreateInfo viewInfo{};
         viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         viewInfo.image = image;
@@ -452,19 +446,6 @@ namespace Viking {
         return shaderModule;
     }
 
-    void Renderer::createCommandPool() {
-        const auto indices = Vulkan::Context::get()->getPhysicalDevice()->getQueueFamilyIndices();
-
-        VkCommandPoolCreateInfo poolInfo{};
-        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        poolInfo.queueFamilyIndex = indices.graphicsFamily.value();
-
-        if (vkCreateCommandPool(Vulkan::Context::get()->getDevice()->get(), &poolInfo, nullptr, &m_CommandPool) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create graphics command pool!");
-        }
-    }
-
     void Renderer::createColorResources() {
         const VkFormat colorFormat = m_SwapChainImageFormat;
 
@@ -472,9 +453,7 @@ namespace Viking {
         m_ColorImageView = createImageView(m_ColorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
     }
 
-    void Renderer::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples,
-        VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
-        VkImage& image, VkDeviceMemory& imageMemory) {
+    void Renderer::createImage(const uint32_t width, const uint32_t height, const uint32_t mipLevels, const VkSampleCountFlagBits numSamples, const VkFormat format, const VkImageTiling tiling, const VkImageUsageFlags usage, const VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -578,9 +557,8 @@ namespace Viking {
         m_TextureImageView = createImageView(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, m_MipLevels);
     }
 
-    void Renderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
-        VkImageLayout newLayout, uint32_t mipLevels) {
-        const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+    void Renderer::transitionImageLayout(const VkImage image, VkFormat format, const VkImageLayout oldLayout,const VkImageLayout newLayout, const uint32_t mipLevels) {
+        const VkCommandBuffer commandBuffer = Vulkan::Context::get()->getDevice()->beginSingleTimeCommands();
 
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -618,48 +596,11 @@ namespace Viking {
 
         vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
-        endSingleTimeCommands(commandBuffer);
+        Vulkan::Context::get()->getDevice()->endSingleTimeCommands(commandBuffer);
     }
 
-    VkCommandBuffer Renderer::beginSingleTimeCommands() {
-        VkCommandBufferAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandPool = m_CommandPool;
-        allocInfo.commandBufferCount = 1;
-
-        const auto device = Vulkan::Context::get()->getDevice()->get();
-        VkCommandBuffer commandBuffer;
-        vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
-        vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
-
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-        vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-        return commandBuffer;
-    }
-
-    void Renderer::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
-        vkEndCommandBuffer(commandBuffer);
-
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffer;
-
-        const auto [graphicsQueue, presentQueue] = Vulkan::Context::get()->getDevice()->getQueues();
-
-        vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(graphicsQueue);
-
-        vkFreeCommandBuffers(Vulkan::Context::get()->getDevice()->get(), m_CommandPool, 1, &commandBuffer);
-    }
-
-    void Renderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
-        const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+    void Renderer::copyBufferToImage(const VkBuffer buffer, const VkImage image, const uint32_t width, const uint32_t height) {
+        const VkCommandBuffer commandBuffer = Vulkan::Context::get()->getDevice()->beginSingleTimeCommands();
 
         VkBufferImageCopy region;
         region.bufferOffset = 0;
@@ -678,11 +619,10 @@ namespace Viking {
 
         vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-        endSingleTimeCommands(commandBuffer);
+        Vulkan::Context::get()->getDevice()->endSingleTimeCommands(commandBuffer);
     }
 
-    void Renderer::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight,
-        uint32_t mipLevels) {
+    void Renderer::generateMipmaps(const VkImage image, const VkFormat imageFormat, const int32_t texWidth, const int32_t texHeight, const uint32_t mipLevels) {
         // Check if image format supports linear blitting
         VkFormatProperties formatProperties;
         vkGetPhysicalDeviceFormatProperties(Vulkan::Context::get()->getPhysicalDevice()->get(), imageFormat, &formatProperties);
@@ -691,7 +631,7 @@ namespace Viking {
             throw std::runtime_error("texture image format does not support linear blitting!");
         }
 
-        const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+        const VkCommandBuffer commandBuffer = Vulkan::Context::get()->getDevice()->beginSingleTimeCommands();
 
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -766,7 +706,7 @@ namespace Viking {
             0, nullptr,
             1, &barrier);
 
-        endSingleTimeCommands(commandBuffer);
+        Vulkan::Context::get()->getDevice()->endSingleTimeCommands(commandBuffer);
     }
 
     void Renderer::createTextureSampler() {
@@ -794,48 +734,6 @@ namespace Viking {
         if (vkCreateSampler(Vulkan::Context::get()->getDevice()->get(), &samplerInfo, nullptr, &m_TextureSampler) != VK_SUCCESS) {
             throw std::runtime_error("failed to create texture sampler!");
         }
-    }
-
-    void Renderer::createVertexBuffer() {
-        const VkDeviceSize bufferSize = sizeof m_Mesh->getVertices()[0] * m_Mesh->getVertices().size();
-
-        auto stagingBuffer = Vulkan::Buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-        void* data;
-        const auto device = Vulkan::Context::get()->getDevice()->get();
-        vkMapMemory(device, stagingBuffer.getBufferMemory(), 0, bufferSize, 0, &data);
-        memcpy(data, m_Mesh->getVertices().data(), bufferSize);
-        vkUnmapMemory(device, stagingBuffer.getBufferMemory());
-
-        m_VertexBuffer = createRef<Vulkan::Buffer>(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-        copyBuffer(stagingBuffer.getBuffer(), m_VertexBuffer->getBuffer(), bufferSize);
-    }
-
-    void Renderer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-        const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
-
-        VkBufferCopy copyRegion{};
-        copyRegion.size = size;
-        vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-        endSingleTimeCommands(commandBuffer);
-    }
-
-    void Renderer::createIndexBuffer() {
-        const VkDeviceSize bufferSize = sizeof m_Mesh->getIndices()[0] * m_Mesh->getIndices().size();
-
-        auto stagingBuffer = Vulkan::Buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-        const auto device = Vulkan::Context::get()->getDevice()->get();
-        void* data;
-        vkMapMemory(device, stagingBuffer.getBufferMemory(), 0, bufferSize, 0, &data);
-        memcpy(data, m_Mesh->getIndices().data(), bufferSize);
-        vkUnmapMemory(device, stagingBuffer.getBufferMemory());
-
-        m_IndexBuffer = createRef<Vulkan::Buffer>(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-        copyBuffer(stagingBuffer.getBuffer(), m_IndexBuffer->getBuffer(), bufferSize);
     }
 
     void Renderer::createUniformBuffers() {
@@ -923,7 +821,7 @@ namespace Viking {
 
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.commandPool = m_CommandPool;
+        allocInfo.commandPool = Vulkan::Context::get()->getDevice()->getCommandPool();
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandBufferCount = static_cast<uint32_t>(m_CommandBuffers.size());
 
@@ -998,7 +896,7 @@ namespace Viking {
         vkDestroySwapchainKHR(device, m_SwapChain, nullptr);
     }
 
-    void Renderer::updateUniformBuffer(uint32_t currentImage) {
+    void Renderer::updateUniformBuffer(const uint32_t currentImage) {
         static auto startTime = Application::get()->getWindow()->getTime();
         const auto currentTime = Application::get()->getWindow()->getTime();
         const auto time = currentTime - startTime;
@@ -1052,11 +950,11 @@ namespace Viking {
         scissor.extent = m_SwapChainExtent;
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-        const VkBuffer vertexBuffers[] = { m_VertexBuffer->getBuffer() };
+        const VkBuffer vertexBuffers[] = { m_Mesh->getVertexBuffer()->getBuffer() };
         constexpr VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-        vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(commandBuffer, m_Mesh->getIndexBuffer()->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, 1, &m_DescriptorSets[m_CurrentFrame], 0, nullptr);
 

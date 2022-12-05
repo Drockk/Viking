@@ -30,8 +30,6 @@ namespace Viking {
 
     private:
         inline static Ref<Mesh> m_Mesh{};
-        inline static Ref<Vulkan::Buffer> m_VertexBuffer;
-        inline static Ref<Vulkan::Buffer> m_IndexBuffer;
         inline static std::vector<Ref<Vulkan::Buffer>> m_UniformBuffers;
 
         static void createSwapChain();
@@ -46,7 +44,6 @@ namespace Viking {
         static void createGraphicsPipeline();
         static std::vector<char> readFile(const std::string& filename);
         [[nodiscard]] static VkShaderModule createShaderModule(const std::vector<char>& code);
-        static void createCommandPool();
         static void createColorResources();
         static void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
         static void createDepthResources();
@@ -54,14 +51,9 @@ namespace Viking {
         static void createTextureImage();
         static void createTextureImageView();
         static void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
-        [[nodiscard]] static VkCommandBuffer beginSingleTimeCommands();
-        static void endSingleTimeCommands(VkCommandBuffer commandBuffer);
         static void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
         static void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
         static void createTextureSampler();
-        static void createVertexBuffer();
-        static void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-        static void createIndexBuffer();
         static void createUniformBuffers();
         static void createDescriptorPool();
         static void createDescriptorSets();
@@ -82,7 +74,6 @@ namespace Viking {
         inline static VkDescriptorSetLayout m_DescriptorSetLayout{};
         inline static VkPipelineLayout m_PipelineLayout{};
         inline static VkPipeline m_GraphicsPipeline{};
-        inline static VkCommandPool m_CommandPool{};
         inline static VkImage m_ColorImage{};
         inline static VkDeviceMemory m_ColorImageMemory{};
         inline static VkImageView m_ColorImageView{};

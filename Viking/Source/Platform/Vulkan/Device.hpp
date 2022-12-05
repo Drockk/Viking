@@ -9,11 +9,22 @@ namespace Vulkan {
         Device(const Viking::Ref<PhysicalDevice>& physicalDevice);
         ~Device();
 
-        VkDevice get() const;
+        [[nodiscard]] VkDevice get() const;
         std::tuple<VkQueue, VkQueue> getQueues();
+
+        [[nodiscard]] VkCommandBuffer beginSingleTimeCommands() const;
+        void endSingleTimeCommands(VkCommandBuffer commandBuffer) const;
+
+        //TEMP
+        [[nodiscard]] VkCommandPool getCommandPool() const;
+
     private:
+        void createCommandPool(const Viking::Ref<PhysicalDevice>& physicalDevice);
+
         VkDevice m_Device{};
         VkQueue m_GraphicsQueue{};
         VkQueue m_PresentQueue{};
+
+        VkCommandPool m_CommandPool{};
     };
 }

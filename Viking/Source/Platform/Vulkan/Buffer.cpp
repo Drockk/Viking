@@ -1,4 +1,7 @@
 #include "vipch.hpp"
+
+#include "Viking/Renderer/Mesh.hpp"
+
 #include "Platform/Vulkan/Buffer.hpp"
 #include "Platform/Vulkan/Context.hpp"
 
@@ -40,11 +43,61 @@ namespace Vulkan {
         vkFreeMemory(device, m_BufferMemory, nullptr);
     }
 
+    void Buffer::copy(Buffer& source, const VkDeviceSize size) const {
+        const auto commandBuffer = m_Device->beginSingleTimeCommands();
+
+        VkBufferCopy copyRegion{};
+        copyRegion.size = size;
+        vkCmdCopyBuffer(commandBuffer, source.getBuffer(), m_Buffer, 1, &copyRegion);
+
+        m_Device->endSingleTimeCommands(commandBuffer);
+    }
+
     VkBuffer& Buffer::getBuffer() {
         return m_Buffer;
     }
 
     VkDeviceMemory& Buffer::getBufferMemory() {
         return m_BufferMemory;
+    }
+
+    IndexBuffer::IndexBuffer(const std::vector<uint32_t>& indices) {
+        const VkDeviceSize bufferSize = sizeof indices[0] * indices.size();
+
+        auto stagingBuffer = Buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+        const auto device = Context::get()->getDevice()->get();
+        void* data;
+        vkMapMemory(device, stagingBuffer.getBufferMemory(), 0, bufferSize, 0, &data);
+        memcpy(data, indices.data(), bufferSize);
+        vkUnmapMemory(device, stagingBuffer.getBufferMemory());
+
+        m_Buffer = Viking::createRef<Buffer>(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+        m_Buffer->copy(stagingBuffer, bufferSize);
+    }
+
+    VkBuffer& IndexBuffer::getBuffer() const {
+        return m_Buffer->getBuffer();
+    }
+
+    VertexBuffer::VertexBuffer(const std::vector<Vertex>& vertices) {
+        const VkDeviceSize bufferSize = sizeof vertices[0] * vertices.size();
+
+        auto stagingBuffer = Buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+        void* data;
+        const auto device = Context::get()->getDevice()->get();
+        vkMapMemory(device, stagingBuffer.getBufferMemory(), 0, bufferSize, 0, &data);
+        memcpy(data, vertices.data(), bufferSize);
+        vkUnmapMemory(device, stagingBuffer.getBufferMemory());
+
+        m_Buffer = Viking::createRef<Buffer>(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+        m_Buffer->copy(stagingBuffer, bufferSize);
+    }
+
+    VkBuffer& VertexBuffer::getBuffer() const {
+        return m_Buffer->getBuffer();
     }
 }

@@ -42,6 +42,9 @@ namespace Viking {
                 m_Indices.push_back(uniqueVertices[vertex]);
             }
         }
+
+        m_VertexBuffer = createRef<Vulkan::VertexBuffer>(m_Vertices);
+        m_IndexBuffer = createRef<Vulkan::IndexBuffer>(m_Indices);
     }
 
     std::vector<Vertex>& Mesh::getVertices() {
@@ -50,5 +53,13 @@ namespace Viking {
 
     std::vector<uint32_t>& Mesh::getIndices() {
         return m_Indices;
+    }
+
+    Ref<Vulkan::VertexBuffer> Mesh::getVertexBuffer() {
+        return m_VertexBuffer;
+    }
+
+    Ref<Vulkan::IndexBuffer> Mesh::getIndexBuffer() {
+        return m_IndexBuffer;
     }
 }
