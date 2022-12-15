@@ -53,10 +53,6 @@ namespace Viking {
         vkDestroyDescriptorPool(device, m_DescriptorPool, nullptr);
 
         vkDestroySampler(device, m_TextureSampler, nullptr);
-        vkDestroyImageView(device, m_TextureImageView, nullptr);
-
-        vkDestroyImage(device, m_TextureImage, nullptr);
-        vkFreeMemory(device, m_TextureImageMemory, nullptr);
 
         vkDestroyDescriptorSetLayout(device, m_DescriptorSetLayout, nullptr);
 
@@ -90,10 +86,10 @@ namespace Viking {
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-        const auto indices = Vulkan::Context::get()->getPhysicalDevice()->getQueueFamilyIndices();
-        const uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+        const auto [graphicsFamily, presentFamily] = Vulkan::Context::get()->getPhysicalDevice()->getQueueFamilyIndices();
+        const uint32_t queueFamilyIndices[] = { graphicsFamily.value(), presentFamily.value() };
 
-        if (indices.graphicsFamily != indices.presentFamily) {
+        if (graphicsFamily != presentFamily) {
             createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
             createInfo.queueFamilyIndexCount = 2;
             createInfo.pQueueFamilyIndices = queueFamilyIndices;
@@ -449,8 +445,8 @@ namespace Viking {
     void Renderer::createColorResources() {
         const VkFormat colorFormat = m_SwapChainImageFormat;
 
-        createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, Vulkan::Context::get()->getPhysicalDevice()->getMsaaSamples(), colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_ColorImage, m_ColorImageMemory);
-        m_ColorImageView = createImageView(m_ColorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+        m_ColorImage = createRef<Vulkan::Image>(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, Vulkan::Context::get()->getPhysicalDevice()->getMsaaSamples(), colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+        m_ColorImage->createImageView(colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
     }
 
     void Renderer::createImage(const uint32_t width, const uint32_t height, const uint32_t mipLevels, const VkSampleCountFlagBits numSamples, const VkFormat format, const VkImageTiling tiling, const VkImageUsageFlags usage, const VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
@@ -492,8 +488,8 @@ namespace Viking {
     void Renderer::createDepthResources() {
         const VkFormat depthFormat = findDepthFormat();
 
-        createImage(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, Vulkan::Context::get()->getPhysicalDevice()->getMsaaSamples(), depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_DepthImage, m_DepthImageMemory);
-        m_DepthImageView = createImageView(m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+        m_DepthImage = createRef<Vulkan::Image>(m_SwapChainExtent.width, m_SwapChainExtent.height, 1, Vulkan::Context::get()->getPhysicalDevice()->getMsaaSamples(), depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
+        m_DepthImage->createImageView(depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
     }
 
     void Renderer::createFramebuffers() {
@@ -501,8 +497,8 @@ namespace Viking {
 
         for (size_t i = 0; i < swapChainImageViews.size(); i++) {
             std::array<VkImageView, 3> attachments = {
-                m_ColorImageView,
-                m_DepthImageView,
+                m_ColorImage->getImageView(),
+                m_DepthImage->getImageView(),
                 swapChainImageViews[i]
             };
 
@@ -541,20 +537,20 @@ namespace Viking {
 
         stbi_image_free(pixels);
 
-        createImage(texWidth, texHeight, m_MipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_TextureImage, m_TextureImageMemory);
+        m_TextureImage = createRef <Vulkan::Image>(texWidth, texHeight, m_MipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
-        transitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, m_MipLevels);
-        copyBufferToImage(stagingBuffer.getBuffer(), m_TextureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+        transitionImageLayout(m_TextureImage->getImage(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, m_MipLevels);
+        copyBufferToImage(stagingBuffer.getBuffer(), m_TextureImage->getImage(), static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
         //transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
 
         vkDestroyBuffer(device, stagingBuffer.getBuffer(), nullptr);
         vkFreeMemory(device, stagingBuffer.getBufferMemory(), nullptr);
 
-        generateMipmaps(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, m_MipLevels);
+        generateMipmaps(m_TextureImage->getImage(), VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, m_MipLevels);
     }
 
     void Renderer::createTextureImageView() {
-        m_TextureImageView = createImageView(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, m_MipLevels);
+        m_TextureImage->createImageView(VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, m_MipLevels);
     }
 
     void Renderer::transitionImageLayout(const VkImage image, VkFormat format, const VkImageLayout oldLayout,const VkImageLayout newLayout, const uint32_t mipLevels) {
@@ -791,7 +787,7 @@ namespace Viking {
 
             VkDescriptorImageInfo imageInfo{};
             imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfo.imageView = m_TextureImageView;
+            imageInfo.imageView = m_TextureImage->getImageView();
             imageInfo.sampler = m_TextureSampler;
 
             std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
@@ -877,13 +873,9 @@ namespace Viking {
 
     void Renderer::cleanupSwapChain() {
         const auto device = Vulkan::Context::get()->getDevice()->get();
-        vkDestroyImageView(device, m_DepthImageView, nullptr);
-        vkDestroyImage(device, m_DepthImage, nullptr);
-        vkFreeMemory(device, m_DepthImageMemory, nullptr);
 
-        vkDestroyImageView(device, m_ColorImageView, nullptr);
-        vkDestroyImage(device, m_ColorImage, nullptr);
-        vkFreeMemory(device, m_ColorImageMemory, nullptr);
+        m_DepthImage->release();
+        m_ColorImage->release();
 
         for (const auto framebuffer : swapChainFramebuffers) {
             vkDestroyFramebuffer(device, framebuffer, nullptr);
