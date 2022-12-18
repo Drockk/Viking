@@ -18,6 +18,9 @@ namespace Vulkan {
 
         void createImageView(VkFormat format, VkImageAspectFlagBits aspectFlags, uint32_t mipLevels);
 
+        void transitionImageLayout(VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels) const;
+        void copyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height) const;
+        void generateMipmaps(VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) const;
     private:
         Viking::Ref<Device> m_Device;
 

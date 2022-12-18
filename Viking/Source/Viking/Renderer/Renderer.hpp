@@ -10,9 +10,10 @@
 #include <vulkan/vulkan.hpp>
 
 #include "Viking/Renderer/Mesh.hpp"
+#include "Viking/Renderer/Texture.hpp"
 
 #include "Platform/Vulkan/Buffer.hpp"
-#include  "Platform/Vulkan/Image.hpp"
+#include "Platform/Vulkan/Image.hpp"
 
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;
@@ -34,7 +35,7 @@ namespace Viking {
         inline static std::vector<Ref<Vulkan::Buffer>> m_UniformBuffers;
         inline static Ref<Vulkan::Image> m_ColorImage;
         inline static Ref<Vulkan::Image> m_DepthImage;
-        inline static Ref<Vulkan::Image> m_TextureImage;
+        inline static Ref<Texture2D> m_Texture;
 
         static void createSwapChain();
         static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
@@ -52,12 +53,6 @@ namespace Viking {
         static void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
         static void createDepthResources();
         static void createFramebuffers();
-        static void createTextureImage();
-        static void createTextureImageView();
-        static void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
-        static void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-        static void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-        static void createTextureSampler();
         static void createUniformBuffers();
         static void createDescriptorPool();
         static void createDescriptorSets();
@@ -78,11 +73,6 @@ namespace Viking {
         inline static VkDescriptorSetLayout m_DescriptorSetLayout{};
         inline static VkPipelineLayout m_PipelineLayout{};
         inline static VkPipeline m_GraphicsPipeline{};
-        inline static uint32_t m_MipLevels{};
-        //inline static VkImage m_TextureImage{};
-        //inline static VkDeviceMemory m_TextureImageMemory{};
-        //inline static VkImageView m_TextureImageView{};
-        inline static VkSampler m_TextureSampler{};
         inline static std::vector<void*> m_UniformBuffersMapped;
         inline static VkDescriptorPool m_DescriptorPool{};
         inline static std::vector<VkDescriptorSet> m_DescriptorSets;
