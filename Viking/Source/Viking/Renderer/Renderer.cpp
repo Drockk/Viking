@@ -11,9 +11,6 @@
 
 constexpr int MAX_FRAMES_IN_FLIGHT{ 2 };
 
-const std::string TEXTURE_PATH = "textures/viking_room.png";
-const std::string MODEL_PATH = "models/viking_room.obj";
-
 namespace Viking {
 
     void Renderer::init() {
@@ -26,9 +23,8 @@ namespace Viking {
         createDepthResources();
         createFramebuffers();
 
-        m_Texture = Texture2D::create(TEXTURE_PATH);
-
-        m_Mesh = createRef<Mesh>(MODEL_PATH);
+        m_Mesh = createRef<Mesh>("models/viking_room.obj");
+        m_Mesh->addColorTexture("textures/viking_room.png");
 
         createUniformBuffers();
         createDescriptorPool();
@@ -305,8 +301,8 @@ namespace Viking {
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-        auto bindingDescription = Vertex::getBindingDescription();
-        auto attributeDescriptions = Vertex::getAttributeDescriptions();
+        auto bindingDescription = Vulkan::VertexBuffer::getBindingDescription();
+        auto attributeDescriptions = Vulkan::VertexBuffer::getAttributeDescriptions();
 
         vertexInputInfo.vertexBindingDescriptionCount = 1;
         vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
@@ -567,8 +563,8 @@ namespace Viking {
 
             VkDescriptorImageInfo imageInfo{};
             imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfo.imageView = static_cast<Vulkan::Texture2D*>(m_Texture.get())->getImage()->getImageView();
-            imageInfo.sampler = static_cast<Vulkan::Texture2D*>(m_Texture.get())->getSampler();
+            imageInfo.imageView = dynamic_cast<Vulkan::Texture2D*>(m_Mesh->getColorTexture().get())->getImage()->getImageView();
+            imageInfo.sampler = dynamic_cast<Vulkan::Texture2D*>(m_Mesh->getColorTexture().get())->getSampler();
 
             std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 
@@ -722,11 +718,11 @@ namespace Viking {
         scissor.extent = m_SwapChainExtent;
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-        const VkBuffer vertexBuffers[] = { m_Mesh->getVertexBuffer()->getBuffer() };
+        const VkBuffer vertexBuffers[] = {dynamic_cast<Vulkan::VertexBuffer*>(m_Mesh->getVertexBuffer().get())->getBuffer() };
         constexpr VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-        vkCmdBindIndexBuffer(commandBuffer, m_Mesh->getIndexBuffer()->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(commandBuffer, static_cast<Vulkan::IndexBuffer*>(m_Mesh->getIndexBuffer().get())->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, 1, &m_DescriptorSets[m_CurrentFrame], 0, nullptr);
 

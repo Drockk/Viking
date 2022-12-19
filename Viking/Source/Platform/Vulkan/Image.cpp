@@ -32,7 +32,7 @@ namespace Vulkan {
         VkMemoryAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = Vulkan::Context::get()->getPhysicalDevice()->findMemoryType(memRequirements.memoryTypeBits, properties);
+        allocInfo.memoryTypeIndex = Context::get()->getPhysicalDevice()->findMemoryType(memRequirements.memoryTypeBits, properties);
 
         if (vkAllocateMemory(m_Device->get(), &allocInfo, nullptr, &m_ImageMemory) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate image memory!");

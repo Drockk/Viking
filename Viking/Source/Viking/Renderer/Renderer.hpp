@@ -10,9 +10,8 @@
 #include <vulkan/vulkan.hpp>
 
 #include "Viking/Renderer/Mesh.hpp"
-#include "Viking/Renderer/Texture.hpp"
 
-#include "Platform/Vulkan/Buffer.hpp"
+#include "Platform/Vulkan/VulkanBuffer.hpp"
 #include "Platform/Vulkan/Image.hpp"
 
 struct UniformBufferObject {
@@ -35,7 +34,6 @@ namespace Viking {
         inline static std::vector<Ref<Vulkan::Buffer>> m_UniformBuffers;
         inline static Ref<Vulkan::Image> m_ColorImage;
         inline static Ref<Vulkan::Image> m_DepthImage;
-        inline static Ref<Texture2D> m_Texture;
 
         static void createSwapChain();
         static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);

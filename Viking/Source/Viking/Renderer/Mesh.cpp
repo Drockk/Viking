@@ -43,8 +43,12 @@ namespace Viking {
             }
         }
 
-        m_VertexBuffer = createRef<Vulkan::VertexBuffer>(m_Vertices);
-        m_IndexBuffer = createRef<Vulkan::IndexBuffer>(m_Indices);
+        m_VertexBuffer = VertexBuffer::create(m_Vertices);
+        m_IndexBuffer = IndexBuffer::create(m_Indices);
+    }
+
+    void Mesh::addColorTexture(const std::string& filename) {
+        m_ColorTexture = Texture2D::create(filename);
     }
 
     std::vector<Vertex>& Mesh::getVertices() {
@@ -55,11 +59,15 @@ namespace Viking {
         return m_Indices;
     }
 
-    Ref<Vulkan::VertexBuffer> Mesh::getVertexBuffer() {
+    Ref<Texture2D> Mesh::getColorTexture() {
+        return m_ColorTexture;
+    }
+
+    Ref<VertexBuffer> Mesh::getVertexBuffer() {
         return m_VertexBuffer;
     }
 
-    Ref<Vulkan::IndexBuffer> Mesh::getIndexBuffer() {
+    Ref<IndexBuffer> Mesh::getIndexBuffer() {
         return m_IndexBuffer;
     }
 }
