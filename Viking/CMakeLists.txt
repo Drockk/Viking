@@ -7,7 +7,7 @@ project ("Viking")
 # Add source to this project's executable.
 find_package (Vulkan REQUIRED FATAL_ERROR)
 
-add_executable (Viking   "main.cpp" "vk_engine.cpp")
+add_executable (Viking   "main.cpp" "vk_engine.cpp" "vk_initializers.cpp")
 
 target_include_directories (Viking
 	PUBLIC ${VULKAN_INCLUDE_DIRS}

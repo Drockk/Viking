@@ -36,6 +36,7 @@ void ViEngine::init()
     //load the core Vulkan structures
     initVulkan();
     initSwapchain();
+    initCommands();
 
     m_isInitialized = true;
 }
@@ -43,6 +44,7 @@ void ViEngine::init()
 void ViEngine::cleanup()
 {
     if (m_isInitialized) {
+        vkDestroyCommandPool(m_device, m_commandPool, nullptr);
         vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
 
         //destroy swapchain resources
@@ -71,6 +73,20 @@ void ViEngine::run()
         glfwPollEvents();
         draw();
     }
+}
+
+void ViEngine::initCommands()
+{
+    //create a command pool for commands submitted to the graphics queue.
+    //we also want the pool to allow for resetting of individual command buffers
+    VkCommandPoolCreateInfo commandPoolInfo = vkinit::commandPoolCreateInfo(m_graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+
+    VK_CHECK(vkCreateCommandPool(m_device, &commandPoolInfo, nullptr, &m_commandPool));
+
+    //allocate the default command buffer that we will use for rendering
+    VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::commandBufferAllocateInfo(m_commandPool, 1);
+
+    VK_CHECK(vkAllocateCommandBuffers(m_device, &cmdAllocInfo, &m_mainCommandBuffer));
 }
 
 void ViEngine::initSwapchain()
@@ -132,4 +148,8 @@ void ViEngine::initVulkan()
     // Get the VkDevice handle used in the rest of a Vulkan application
     m_device = m_device2.device;
     m_chosenGPU = physicalDevice.physical_device;
+
+    // use vkbootstrap to get a Graphics queue
+    m_graphicsQueue = m_device2.get_queue(vkb::QueueType::graphics).value();
+    m_graphicsQueueFamily = m_device2.get_queue_index(vkb::QueueType::graphics).value();
 }

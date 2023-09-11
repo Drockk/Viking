@@ -32,12 +32,21 @@ public:
     vkb::Device m_device2;
     VkSurfaceKHR m_surface; // Vulkan window surface
 
+    VkQueue m_graphicsQueue; //queue we will submit to
+    uint32_t m_graphicsQueueFamily; //family of that queue
+
+    VkCommandPool m_commandPool; //the command pool for our commands
+    VkCommandBuffer m_mainCommandBuffer; //the buffer we will record into
+
+
+
     void init();
     void cleanup();
     void draw();
     void run();
 
 private:
+    void initCommands();
     void initSwapchain();
     void initVulkan();
 };
