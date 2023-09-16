@@ -37,6 +37,8 @@ void ViEngine::init()
     initVulkan();
     initSwapchain();
     initCommands();
+    initDefaultRenderpass();
+    initFramebuffers();
 
     m_isInitialized = true;
 }
@@ -47,9 +49,12 @@ void ViEngine::cleanup()
         vkDestroyCommandPool(m_device, m_commandPool, nullptr);
         vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
 
-        //destroy swapchain resources
-        for (int i = 0; i < m_swapchainImageViews.size(); i++) {
+        // Destroy the main renderpass
+        vkDestroyRenderPass(m_device, m_renderPass, nullptr);
 
+        // Destroy swapchain resources
+        for (int i = 0; i < m_swapchainImageViews.size(); i++) {
+            vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
             vkDestroyImageView(m_device, m_swapchainImageViews[i], nullptr);
         }
 
@@ -152,4 +157,74 @@ void ViEngine::initVulkan()
     // use vkbootstrap to get a Graphics queue
     m_graphicsQueue = m_device2.get_queue(vkb::QueueType::graphics).value();
     m_graphicsQueueFamily = m_device2.get_queue_index(vkb::QueueType::graphics).value();
+}
+
+void ViEngine::initDefaultRenderpass()
+{
+    // The renderpass will use this color attachment.
+    VkAttachmentDescription colorAttachment = {};
+    // The attachment will have the format needed by the swapchain
+    colorAttachment.format = m_swapchainImageFormat;
+    // 1 sample, we won't be doing MSAA
+    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    // We Clear when this attachment is loaded
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    // We keep the attachment stored when the renderpass ends
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    // We don't care about stencil
+    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+    // We don't know or care about the starting layout of the attachment
+    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    // After the renderpass ends, the image has to be on a layout ready for display
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference coloraAttachmentRef = {};
+    // Attachment number will index into the pAttachments array in the parent renderpass itself
+    coloraAttachmentRef.attachment = 0;
+    coloraAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    // We are going to create 1 subpass, which is the minimum you can do
+    VkSubpassDescription subpass = {};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &coloraAttachmentRef;
+
+    VkRenderPassCreateInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+
+    //connect the color attachment to the info
+    renderPassInfo.attachmentCount = 1;
+    renderPassInfo.pAttachments = &colorAttachment;
+    //connect the subpass to the info
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpass;
+
+    VK_CHECK(vkCreateRenderPass(m_device, &renderPassInfo, nullptr, &m_renderPass));
+}
+
+void ViEngine::initFramebuffers()
+{
+    // Create the framebuffers for the swapchain images. This will connect the render-pass to the images for rendering
+    VkFramebufferCreateInfo fbInfo = {};
+    fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    fbInfo.pNext = nullptr;
+
+    fbInfo.renderPass = m_renderPass;
+    fbInfo.attachmentCount = 1;
+    fbInfo.width = m_windowExtent.width;
+    fbInfo.height = m_windowExtent.height;
+    fbInfo.layers = 1;
+
+    //grab how many images we have in the swapchain
+    const uint32_t swapchain_imagecount = m_swapchainImages.size();
+    m_framebuffers = std::vector<VkFramebuffer>(swapchain_imagecount);
+
+    //create framebuffers for each of the swapchain image views
+    for (int i = 0; i < swapchain_imagecount; i++) {
+        fbInfo.pAttachments = &m_swapchainImageViews[i];
+        VK_CHECK(vkCreateFramebuffer(m_device, &fbInfo, nullptr, &m_framebuffers[i]));
+    }
 }

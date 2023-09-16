@@ -38,7 +38,8 @@ public:
     VkCommandPool m_commandPool; //the command pool for our commands
     VkCommandBuffer m_mainCommandBuffer; //the buffer we will record into
 
-
+    VkRenderPass m_renderPass;
+    std::vector<VkFramebuffer> m_framebuffers;
 
     void init();
     void cleanup();
@@ -49,4 +50,6 @@ private:
     void initCommands();
     void initSwapchain();
     void initVulkan();
+    void initDefaultRenderpass();
+    void initFramebuffers();
 };
