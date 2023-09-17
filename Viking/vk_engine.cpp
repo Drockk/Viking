@@ -39,6 +39,7 @@ void ViEngine::init()
     initCommands();
     initDefaultRenderpass();
     initFramebuffers();
+    initSyncStructures();
 
     m_isInitialized = true;
 }
@@ -69,7 +70,101 @@ void ViEngine::cleanup()
 
 void ViEngine::draw()
 {
-    //TODO: Nothing yet
+    // Wait until the GPU has finished rendering the last frame. Timeout of 1 second
+    VK_CHECK(vkWaitForFences(m_device, 1, &m_renderFence, true, 1000000000));
+    VK_CHECK(vkResetFences(m_device, 1, &m_renderFence));
+
+    // Request image from the swapchain, one second timeout
+    uint32_t swapchainImageIndex;
+    VK_CHECK(vkAcquireNextImageKHR(m_device, m_swapchain, 1000000000, m_presentSemaphore, nullptr, &swapchainImageIndex));
+
+    // Now that we are sure that the commands finished executing, we can safely reset the command buffer to begin recording again.
+    VK_CHECK(vkResetCommandBuffer(m_mainCommandBuffer, 0));
+
+    //Naming it cmd for shorter writing
+    VkCommandBuffer cmd = m_mainCommandBuffer;
+
+    // Begin the command buffer recording. We will use this command buffer exactly once, so we want to let Vulkan know that
+    VkCommandBufferBeginInfo cmdBeginInfo = {};
+    cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    cmdBeginInfo.pNext = nullptr;
+
+    cmdBeginInfo.pInheritanceInfo = nullptr;
+    cmdBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+    // Make a clear-color from frame number. This will flash with a 120*pi frame period.
+    VkClearValue clearValue;
+    float flash = abs(sin(m_frameNumber / 120.f));
+    clearValue.color = { { 0.0f, 0.0f, flash, 1.0f } };
+
+    // Start the main renderpass.
+    // We will use the clear color from above, and the framebuffer of the index the swapchain gave us
+    VkRenderPassBeginInfo rpInfo = {};
+    rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rpInfo.pNext = nullptr;
+
+    rpInfo.renderPass = m_renderPass;
+    rpInfo.renderArea.offset.x = 0;
+    rpInfo.renderArea.offset.y = 0;
+    rpInfo.renderArea.extent = m_windowExtent;
+    rpInfo.framebuffer = m_framebuffers[swapchainImageIndex];
+
+    // Connect clear values
+    rpInfo.clearValueCount = 1;
+    rpInfo.pClearValues = &clearValue;
+
+    vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // Finalize the render pass
+    vkCmdEndRenderPass(cmd);
+    // Finalize the command buffer (we can no longer add commands, but it can now be executed)
+    VK_CHECK(vkEndCommandBuffer(cmd));
+
+    // Prepare the submission to the queue.
+    // We want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
+    // We will signal the _renderSemaphore, to signal that rendering has finished
+
+    VkSubmitInfo submit = {};
+    submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit.pNext = nullptr;
+
+    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+    submit.pWaitDstStageMask = &waitStage;
+
+    submit.waitSemaphoreCount = 1;
+    submit.pWaitSemaphores = &m_presentSemaphore;
+
+    submit.signalSemaphoreCount = 1;
+    submit.pSignalSemaphores = &m_renderSemaphore;
+
+    submit.commandBufferCount = 1;
+    submit.pCommandBuffers = &cmd;
+
+    // Submit command buffer to the queue and execute it.
+    // m_renderFence will now block until the graphic commands finish execution
+    VK_CHECK(vkQueueSubmit(m_graphicsQueue, 1, &submit, m_renderFence));
+
+    // This will put the image we just rendered into the visible window.
+    // We want to wait on the _renderSemaphore for that, as it's necessary that drawing commands have finished before the image is displayed to the user
+    VkPresentInfoKHR presentInfo = {};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.pNext = nullptr;
+
+    presentInfo.pSwapchains = &m_swapchain;
+    presentInfo.swapchainCount = 1;
+
+    presentInfo.pWaitSemaphores = &m_renderSemaphore;
+    presentInfo.waitSemaphoreCount = 1;
+
+    presentInfo.pImageIndices = &swapchainImageIndex;
+
+    VK_CHECK(vkQueuePresentKHR(m_graphicsQueue, &presentInfo));
+
+    // Increase the number of frames drawn
+    m_frameNumber++;
 }
 
 void ViEngine::run()
@@ -227,4 +322,26 @@ void ViEngine::initFramebuffers()
         fbInfo.pAttachments = &m_swapchainImageViews[i];
         VK_CHECK(vkCreateFramebuffer(m_device, &fbInfo, nullptr, &m_framebuffers[i]));
     }
+}
+
+void ViEngine::initSyncStructures()
+{
+    // Create synchronization structures
+    VkFenceCreateInfo fenceCreateInfo = {};
+    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceCreateInfo.pNext = nullptr;
+
+    // We want to create the fence with the Create Signaled flag, so we can wait on it before using it on a GPU command (for the first frame)
+    fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    VK_CHECK(vkCreateFence(m_device, &fenceCreateInfo, nullptr, &m_renderFence));
+
+    // For the semaphores we don't need any flags
+    VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+    semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    semaphoreCreateInfo.pNext = nullptr;
+    semaphoreCreateInfo.flags = 0;
+
+    VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCreateInfo, nullptr, &m_presentSemaphore));
+    VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCreateInfo, nullptr, &m_renderSemaphore));
 }

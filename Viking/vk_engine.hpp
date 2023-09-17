@@ -41,6 +41,10 @@ public:
     VkRenderPass m_renderPass;
     std::vector<VkFramebuffer> m_framebuffers;
 
+    VkSemaphore m_presentSemaphore;
+    VkSemaphore m_renderSemaphore;
+    VkFence m_renderFence;
+
     void init();
     void cleanup();
     void draw();
@@ -52,4 +56,5 @@ private:
     void initVulkan();
     void initDefaultRenderpass();
     void initFramebuffers();
+    void initSyncStructures();
 };
