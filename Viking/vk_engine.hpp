@@ -5,6 +5,21 @@
 
 struct GLFWwindow;
 
+class PipelineBuilder {
+public:
+    std::vector<VkPipelineShaderStageCreateInfo> m_shaderStages;
+    VkPipelineVertexInputStateCreateInfo m_vertexInputInfo;
+    VkPipelineInputAssemblyStateCreateInfo m_inputAssembly;
+    VkViewport m_viewport;
+    VkRect2D m_scissor;
+    VkPipelineRasterizationStateCreateInfo m_rasterizer;
+    VkPipelineColorBlendAttachmentState m_colorBlendAttachment;
+    VkPipelineMultisampleStateCreateInfo m_multisampling;
+    VkPipelineLayout m_pipelineLayout;
+
+    VkPipeline buildPipeline(VkDevice t_device, VkRenderPass t_pass);
+};
+
 class ViEngine
 {
 public:
@@ -44,6 +59,9 @@ public:
     VkSemaphore m_presentSemaphore;
     VkSemaphore m_renderSemaphore;
     VkFence m_renderFence;
+
+    VkPipelineLayout m_trianglePipelineLayout;
+    VkPipeline m_trianglePipeline;
 
     void init();
     void cleanup();
