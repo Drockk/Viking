@@ -124,3 +124,21 @@ VkPipelineLayoutCreateInfo vkinit::pipelineLayoutCreateInfo()
     info.pPushConstantRanges = nullptr;
     return info;
 }
+
+VkFenceCreateInfo vkinit::fenceCreateInfo(VkFenceCreateFlags t_flags)
+{
+    VkFenceCreateInfo fenceCreateInfo = {};
+    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceCreateInfo.pNext = nullptr;
+    fenceCreateInfo.flags = t_flags;
+    return fenceCreateInfo;
+}
+
+VkSemaphoreCreateInfo vkinit::semaphoreCreateInfo(VkSemaphoreCreateFlags t_flags)
+{
+    VkSemaphoreCreateInfo semCreateInfo = {};
+    semCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    semCreateInfo.pNext = nullptr;
+    semCreateInfo.flags = t_flags;
+    return semCreateInfo;
+}
