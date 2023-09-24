@@ -50,17 +50,10 @@ void ViEngine::init()
 void ViEngine::cleanup()
 {
     if (m_isInitialized) {
-        vkDestroyCommandPool(m_device, m_commandPool, nullptr);
-        vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
+        // Make sure the GPU has stopped doing its things
+        vkWaitForFences(m_device, 1, &m_renderFence, true, 1000000000);
 
-        // Destroy the main renderpass
-        vkDestroyRenderPass(m_device, m_renderPass, nullptr);
-
-        // Destroy swapchain resources
-        for (int i = 0; i < m_swapchainImageViews.size(); i++) {
-            vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
-            vkDestroyImageView(m_device, m_swapchainImageViews[i], nullptr);
-        }
+        m_mainDeletionQueue.flush();
 
         vkDestroyDevice(m_device, nullptr);
         vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
@@ -196,6 +189,10 @@ void ViEngine::initCommands()
     VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::commandBufferAllocateInfo(m_commandPool, 1);
 
     VK_CHECK(vkAllocateCommandBuffers(m_device, &cmdAllocInfo, &m_mainCommandBuffer));
+
+    m_mainDeletionQueue.push_function([=]() {
+        vkDestroyCommandPool(m_device, m_commandPool, nullptr);
+        });
 }
 
 void ViEngine::initSwapchain()
@@ -215,6 +212,10 @@ void ViEngine::initSwapchain()
     m_swapchainImageViews = vkbSwapchain.get_image_views().value();
 
     m_swapchainImageFormat = vkbSwapchain.image_format;
+
+    m_mainDeletionQueue.push_function([=]() {
+        vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
+    });
 }
 
 void ViEngine::initVulkan()
@@ -307,6 +308,10 @@ void ViEngine::initDefaultRenderpass()
     renderPassInfo.pSubpasses = &subpass;
 
     VK_CHECK(vkCreateRenderPass(m_device, &renderPassInfo, nullptr, &m_renderPass));
+
+    m_mainDeletionQueue.push_function([=]() {
+        vkDestroyRenderPass(m_device, m_renderPass, nullptr);
+    });
 }
 
 void ViEngine::initFramebuffers()
@@ -330,29 +335,35 @@ void ViEngine::initFramebuffers()
     for (int i = 0; i < swapchain_imagecount; i++) {
         fbInfo.pAttachments = &m_swapchainImageViews[i];
         VK_CHECK(vkCreateFramebuffer(m_device, &fbInfo, nullptr, &m_framebuffers[i]));
+
+        m_mainDeletionQueue.push_function([=]() {
+            vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
+            vkDestroyImageView(m_device, m_swapchainImageViews[i], nullptr);
+            });
     }
 }
 
 void ViEngine::initSyncStructures()
 {
-    // Create synchronization structures
-    VkFenceCreateInfo fenceCreateInfo = {};
-    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceCreateInfo.pNext = nullptr;
-
-    // We want to create the fence with the Create Signaled flag, so we can wait on it before using it on a GPU command (for the first frame)
-    fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    VkFenceCreateInfo fenceCreateInfo = vkinit::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
 
     VK_CHECK(vkCreateFence(m_device, &fenceCreateInfo, nullptr, &m_renderFence));
 
-    // For the semaphores we don't need any flags
-    VkSemaphoreCreateInfo semaphoreCreateInfo = {};
-    semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    semaphoreCreateInfo.pNext = nullptr;
-    semaphoreCreateInfo.flags = 0;
+    //enqueue the destruction of the fence
+    m_mainDeletionQueue.push_function([=]() {
+        vkDestroyFence(m_device, m_renderFence, nullptr);
+        });
+
+    VkSemaphoreCreateInfo semaphoreCreateInfo = vkinit::semaphoreCreateInfo();
 
     VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCreateInfo, nullptr, &m_presentSemaphore));
     VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCreateInfo, nullptr, &m_renderSemaphore));
+
+    //enqueue the destruction of semaphores
+    m_mainDeletionQueue.push_function([=]() {
+        vkDestroySemaphore(m_device, m_presentSemaphore, nullptr);
+        vkDestroySemaphore(m_device, m_renderSemaphore, nullptr);
+        });
 }
 
 void ViEngine::initPipelines()
@@ -418,6 +429,16 @@ void ViEngine::initPipelines()
 
     // Finally build the pipeline
     m_trianglePipeline = pipelineBuilder.buildPipeline(m_device, m_renderPass);
+
+    vkDestroyShaderModule(m_device, triangleVertexShader, nullptr);
+    vkDestroyShaderModule(m_device, triangleFragShader, nullptr);
+
+    m_mainDeletionQueue.push_function([=]() {
+        vkDestroyPipeline(m_device, m_trianglePipeline, nullptr);
+
+        //destroy the pipeline layout that they use
+        vkDestroyPipelineLayout(m_device, m_trianglePipelineLayout, nullptr);
+        });
 }
 
 bool ViEngine::loadShaderModule(const char* t_filePath, VkShaderModule* t_outShaderModule)

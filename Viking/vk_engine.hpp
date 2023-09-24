@@ -3,7 +3,29 @@
 
 #include <VkBootstrap.h>
 
+#include <deque>
+#include <functional>
+
 struct GLFWwindow;
+
+struct DeletionQueue
+{
+    std::deque<std::function<void()>> deletors;
+
+    void push_function(std::function<void()>&& function) {
+        deletors.push_back(function);
+    }
+
+    void flush() {
+        // reverse iterate the deletion queue to execute all the functions
+        for (auto it = deletors.rbegin(); it != deletors.rend(); it++) {
+            (*it)(); //call the function
+        }
+
+        deletors.clear();
+    }
+};
+
 
 class PipelineBuilder {
 public:
@@ -62,6 +84,8 @@ public:
 
     VkPipelineLayout m_trianglePipelineLayout;
     VkPipeline m_trianglePipeline;
+
+    DeletionQueue m_mainDeletionQueue;
 
     void init();
     void cleanup();
