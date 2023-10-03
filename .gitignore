@@ -1,3 +1,5 @@
 #Directories
+.idea/*
 .vs/*
+cmake-build-debug/
 out/*
