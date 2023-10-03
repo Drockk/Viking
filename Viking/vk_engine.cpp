@@ -9,6 +9,9 @@
 #include <fstream>
 #include <filesystem>
 
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
+
 #define VK_CHECK(x)                                                 \
     do                                                              \
     {                                                               \
@@ -27,7 +30,7 @@ void ViEngine::init()
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    m_window = glfwCreateWindow(m_windowExtent.width, m_windowExtent.height, "Vi Engine", nullptr, nullptr);
+    m_window = glfwCreateWindow(static_cast<int>(m_windowExtent.width), static_cast<int>(m_windowExtent.height), "Vi Engine", nullptr, nullptr);
     if (!m_window) {
         glfwTerminate();
         throw std::runtime_error("Cannot create GLFW window");
@@ -43,6 +46,8 @@ void ViEngine::init()
     initFramebuffers();
     initSyncStructures();
     initPipelines();
+
+    loadMeshes();
 
     m_isInitialized = true;
 }
@@ -92,7 +97,7 @@ void ViEngine::draw()
 
     // Make a clear-color from frame number. This will flash with a 120*pi frame period.
     VkClearValue clearValue;
-    float flash = abs(sin(m_frameNumber / 120.f));
+    float flash = abs(sin(static_cast<float>(m_frameNumber) / 120.f));
     clearValue.color = { { 0.0f, 0.0f, flash, 1.0f } };
 
     // Start the main renderpass.
@@ -190,7 +195,7 @@ void ViEngine::initCommands()
 
     VK_CHECK(vkAllocateCommandBuffers(m_device, &cmdAllocInfo, &m_mainCommandBuffer));
 
-    m_mainDeletionQueue.push_function([=]() {
+    m_mainDeletionQueue.push_function([=, this]() {
         vkDestroyCommandPool(m_device, m_commandPool, nullptr);
         });
 }
@@ -213,7 +218,7 @@ void ViEngine::initSwapchain()
 
     m_swapchainImageFormat = vkbSwapchain.image_format;
 
-    m_mainDeletionQueue.push_function([=]() {
+    m_mainDeletionQueue.push_function([=, this]() {
         vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
     });
 }
@@ -262,6 +267,17 @@ void ViEngine::initVulkan()
     // use vkbootstrap to get a Graphics queue
     m_graphicsQueue = m_device2.get_queue(vkb::QueueType::graphics).value();
     m_graphicsQueueFamily = m_device2.get_queue_index(vkb::QueueType::graphics).value();
+
+    //Initialize the memory allocator
+    VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.physicalDevice = m_chosenGPU;
+    allocatorInfo.device = m_device;
+    allocatorInfo.instance = m_instance;
+    vmaCreateAllocator(&allocatorInfo, &m_allocator);
+
+    m_mainDeletionQueue.push_function([=, this]() {
+        vmaDestroyAllocator(m_allocator);
+    });
 }
 
 void ViEngine::initDefaultRenderpass()
@@ -309,7 +325,7 @@ void ViEngine::initDefaultRenderpass()
 
     VK_CHECK(vkCreateRenderPass(m_device, &renderPassInfo, nullptr, &m_renderPass));
 
-    m_mainDeletionQueue.push_function([=]() {
+    m_mainDeletionQueue.push_function([=, this]() {
         vkDestroyRenderPass(m_device, m_renderPass, nullptr);
     });
 }
@@ -336,7 +352,7 @@ void ViEngine::initFramebuffers()
         fbInfo.pAttachments = &m_swapchainImageViews[i];
         VK_CHECK(vkCreateFramebuffer(m_device, &fbInfo, nullptr, &m_framebuffers[i]));
 
-        m_mainDeletionQueue.push_function([=]() {
+        m_mainDeletionQueue.push_function([=, this]() {
             vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
             vkDestroyImageView(m_device, m_swapchainImageViews[i], nullptr);
             });
@@ -350,7 +366,7 @@ void ViEngine::initSyncStructures()
     VK_CHECK(vkCreateFence(m_device, &fenceCreateInfo, nullptr, &m_renderFence));
 
     //enqueue the destruction of the fence
-    m_mainDeletionQueue.push_function([=]() {
+    m_mainDeletionQueue.push_function([=, this]() {
         vkDestroyFence(m_device, m_renderFence, nullptr);
         });
 
@@ -360,7 +376,7 @@ void ViEngine::initSyncStructures()
     VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCreateInfo, nullptr, &m_renderSemaphore));
 
     //enqueue the destruction of semaphores
-    m_mainDeletionQueue.push_function([=]() {
+    m_mainDeletionQueue.push_function([=, this]() {
         vkDestroySemaphore(m_device, m_presentSemaphore, nullptr);
         vkDestroySemaphore(m_device, m_renderSemaphore, nullptr);
         });
@@ -369,7 +385,7 @@ void ViEngine::initSyncStructures()
 void ViEngine::initPipelines()
 {
     VkShaderModule triangleFragShader;
-    if (!loadShaderModule("D:\\projekty\\Viking\\Shaders\\triangle.frag.spv", &triangleFragShader)) {
+    if (!loadShaderModule(R"(D:\projekty\Viking\Shaders\triangle.frag.spv)", &triangleFragShader)) {
         std::cout << "Error when building the triangle fragment shader module" << std::endl;
     }
     else {
@@ -377,7 +393,7 @@ void ViEngine::initPipelines()
     }
 
     VkShaderModule triangleVertexShader;
-    if (!loadShaderModule("D:\\projekty\\Viking\\Shaders\\triangle.vert.spv", &triangleVertexShader)) {
+    if (!loadShaderModule(R"(D:\projekty\Viking\Shaders\triangle.vert.spv)", &triangleVertexShader)) {
         std::cout << "Error when building the triangle vertex shader module" << std::endl;
 
     }
@@ -433,7 +449,7 @@ void ViEngine::initPipelines()
     vkDestroyShaderModule(m_device, triangleVertexShader, nullptr);
     vkDestroyShaderModule(m_device, triangleFragShader, nullptr);
 
-    m_mainDeletionQueue.push_function([=]() {
+    m_mainDeletionQueue.push_function([=, this]() {
         vkDestroyPipeline(m_device, m_trianglePipeline, nullptr);
 
         //destroy the pipeline layout that they use
@@ -441,7 +457,7 @@ void ViEngine::initPipelines()
         });
 }
 
-bool ViEngine::loadShaderModule(const char* t_filePath, VkShaderModule* t_outShaderModule)
+bool ViEngine::loadShaderModule(const char* t_filePath, VkShaderModule* t_outShaderModule) const
 {
     // Open the file. With cursor at the end
     std::ifstream file(t_filePath, std::ios::ate | std::ios::binary);
@@ -461,7 +477,7 @@ bool ViEngine::loadShaderModule(const char* t_filePath, VkShaderModule* t_outSha
     file.seekg(0);
 
     // Load the entire file into the buffer
-    file.read((char*)buffer.data(), fileSize);
+    file.read((char*)buffer.data(), static_cast<std::streamsize>(fileSize));
 
     // Now that the file is loaded into the buffer, we can close it
     file.close();
@@ -482,6 +498,60 @@ bool ViEngine::loadShaderModule(const char* t_filePath, VkShaderModule* t_outSha
     }
     *t_outShaderModule = shaderModule;
     return true;
+}
+
+void ViEngine::loadMeshes()
+{
+    // Make the array 3 vertices long
+    m_triangleMesh.m_vertices.resize(3);
+
+    // Vertex positions
+    m_triangleMesh.m_vertices[0].position = { 1.f, 1.f, 0.0f };
+    m_triangleMesh.m_vertices[1].position = {-1.f, 1.f, 0.0f };
+    m_triangleMesh.m_vertices[2].position = { 0.f,-1.f, 0.0f };
+
+    //vertex colors, all green
+    m_triangleMesh.m_vertices[0].color = { 0.f, 1.f, 0.0f }; //pure green
+    m_triangleMesh.m_vertices[1].color = { 0.f, 1.f, 0.0f }; //pure green
+    m_triangleMesh.m_vertices[2].color = { 0.f, 1.f, 0.0f }; //pure green
+
+    // We don't care about the vertex normals
+
+    uploadMesh(m_triangleMesh);
+}
+
+void ViEngine::uploadMesh(Mesh &t_mesh)
+{
+    // Allocate vertex buffer
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    // This is the total size, in bytes, of the buffer we are allocating
+    bufferInfo.size = t_mesh.m_vertices.size() * sizeof(Vertex);
+    // This buffer is going to be used as a Vertex Buffer
+    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+
+    // Let the VMA library know that this data should be writeable by CPU, but also readable by GPU
+    VmaAllocationCreateInfo vmaAllocInfo = {};
+    vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+
+    // Allocate the buffer
+    VK_CHECK(vmaCreateBuffer(m_allocator, &bufferInfo, &vmaAllocInfo,
+                             &t_mesh.m_vertexBuffer.m_buffer,
+                             &t_mesh.m_vertexBuffer.m_allocation,
+                             nullptr));
+
+    // Add the destruction of triangle mesh buffer to the deletion queue
+    m_mainDeletionQueue.push_function([=, this]() {
+        vmaDestroyBuffer(m_allocator, t_mesh.m_vertexBuffer.m_buffer, t_mesh.m_vertexBuffer.m_allocation);
+    });
+
+    void* data;
+    vmaMapMemory(m_allocator, t_mesh.m_vertexBuffer.m_allocation, &data);
+
+    memcpy(data, t_mesh.m_vertices.data(), t_mesh.m_vertices.size() * sizeof(Vertex));
+
+    vmaUnmapMemory(m_allocator, t_mesh.m_vertexBuffer.m_allocation);
 }
 
 VkPipeline PipelineBuilder::buildPipeline(VkDevice t_device, VkRenderPass t_pass)

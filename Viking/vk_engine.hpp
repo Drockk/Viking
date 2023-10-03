@@ -1,5 +1,6 @@
 #pragma once
 #include "vk_types.hpp"
+#include "vk_mesh.hpp"
 
 #include <VkBootstrap.h>
 
@@ -87,6 +88,12 @@ public:
 
     DeletionQueue m_mainDeletionQueue;
 
+    VmaAllocator m_allocator;
+
+    //Mesh
+    VkPipeline m_meshPipline;
+    Mesh m_triangleMesh;
+
     void init();
     void cleanup();
     void draw();
@@ -101,6 +108,9 @@ private:
     void initSyncStructures();
     void initPipelines();
 
+    void loadMeshes();
+    void uploadMesh(Mesh& t_mesh);
+
     //Loads a shader module from a spir-v file. Returns false if it errors
-    bool loadShaderModule(const char* t_filePath, VkShaderModule* t_outShaderModule);
+    bool loadShaderModule(const char* t_filePath, VkShaderModule* t_outShaderModule) const;
 };
