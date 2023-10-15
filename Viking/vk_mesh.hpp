@@ -9,11 +9,21 @@
 #include <vector>
 #include <glm/vec3.hpp>
 
+struct VertexInputDescription
+{
+    std::vector<VkVertexInputBindingDescription> m_bindings;
+    std::vector<VkVertexInputAttributeDescription> m_attributes;
+
+    VkPipelineVertexInputStateCreateFlags m_flags{};
+};
+
 struct Vertex
 {
     glm::vec3 position;
     glm::vec3 normal;
     glm::vec3 color;
+
+    static VertexInputDescription getVertexDescription();
 };
 
 struct Mesh {

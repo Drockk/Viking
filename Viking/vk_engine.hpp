@@ -91,7 +91,7 @@ public:
     VmaAllocator m_allocator;
 
     //Mesh
-    VkPipeline m_meshPipline;
+    VkPipeline m_meshPipeline;
     Mesh m_triangleMesh;
 
     void init();

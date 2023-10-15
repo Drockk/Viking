@@ -118,10 +118,14 @@ void ViEngine::draw()
 
     vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    //once we start adding rendering commands, they will go here
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_meshPipeline);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_trianglePipeline);
-    vkCmdDraw(cmd, 3, 1, 0, 0);
+    //bind the mesh vertex buffer with offset 0
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(cmd, 0, 1, &m_triangleMesh.m_vertexBuffer.m_buffer, &offset);
+
+    //we can now draw the mesh
+    vkCmdDraw(cmd, m_triangleMesh.m_vertices.size(), 1, 0, 0);
 
     //finalize the render pass
     vkCmdEndRenderPass(cmd);
@@ -446,15 +450,54 @@ void ViEngine::initPipelines()
     // Finally build the pipeline
     m_trianglePipeline = pipelineBuilder.buildPipeline(m_device, m_renderPass);
 
-    vkDestroyShaderModule(m_device, triangleVertexShader, nullptr);
+    //build the mesh pipeline
+
+    VertexInputDescription vertexDescription = Vertex::getVertexDescription();
+
+    //connect the pipeline builder vertex input info to the one we get from Vertex
+    pipelineBuilder.m_vertexInputInfo.pVertexAttributeDescriptions = vertexDescription.m_attributes.data();
+    pipelineBuilder.m_vertexInputInfo.vertexAttributeDescriptionCount = vertexDescription.m_attributes.size();
+
+    pipelineBuilder.m_vertexInputInfo.pVertexBindingDescriptions = vertexDescription.m_bindings.data();
+    pipelineBuilder.m_vertexInputInfo.vertexBindingDescriptionCount = vertexDescription.m_bindings.size();
+
+    //clear the shader stages for the builder
+    pipelineBuilder.m_shaderStages.clear();
+
+    //compile mesh vertex shader
+    VkShaderModule meshVertShader;
+    if (!loadShaderModule(R"(D:\projekty\Viking\Shaders\tri_mesh.vert.spv)", &meshVertShader))
+    {
+        std::cout << "Error when building the triangle vertex shader module" << std::endl;
+    }
+    else {
+        std::cout << "Red Triangle vertex shader successfully loaded" << std::endl;
+    }
+
+    //add the other shaders
+    pipelineBuilder.m_shaderStages.push_back(vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, meshVertShader));
+
+    //make sure that triangleFragShader is holding the compiled colored_triangle.frag
+    pipelineBuilder.m_shaderStages.push_back(vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, triangleFragShader));
+
+    //build the mesh triangle pipeline
+    m_meshPipeline = pipelineBuilder.buildPipeline(m_device, m_renderPass);
+
+    //deleting all of the vulkan shaders
+    vkDestroyShaderModule(m_device, meshVertShader, nullptr);
+//    vkDestroyShaderModule(_device, redTriangleVertShader, nullptr);
+//    vkDestroyShaderModule(_device, redTriangleFragShader, nullptr);
     vkDestroyShaderModule(m_device, triangleFragShader, nullptr);
+    vkDestroyShaderModule(m_device, triangleVertexShader, nullptr);
 
-    m_mainDeletionQueue.push_function([=, this]() {
+    //adding the pipelines to the deletion queue
+    m_mainDeletionQueue.push_function([=]() {
+//        vkDestroyPipeline(m_device, m_redTrianglePipeline, nullptr);
         vkDestroyPipeline(m_device, m_trianglePipeline, nullptr);
+        vkDestroyPipeline(m_device, m_meshPipeline, nullptr);
 
-        //destroy the pipeline layout that they use
         vkDestroyPipelineLayout(m_device, m_trianglePipelineLayout, nullptr);
-        });
+    });
 }
 
 bool ViEngine::loadShaderModule(const char* t_filePath, VkShaderModule* t_outShaderModule) const
@@ -579,7 +622,7 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice t_device, VkRenderPass t_pass
     colorBlending.pAttachments = &m_colorBlendAttachment;
 
     // Build the actual pipeline
-    // We now use all of the info structs we have been writing into into this one to create the pipeline
+    // We now use all the info structs we have been writing into into this one to create the pipeline
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = nullptr;
