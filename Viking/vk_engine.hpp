@@ -3,6 +3,7 @@
 #include "vk_mesh.hpp"
 
 #include <VkBootstrap.h>
+#include <glm/glm.hpp>
 
 #include <deque>
 #include <functional>
@@ -41,6 +42,12 @@ public:
     VkPipelineLayout m_pipelineLayout;
 
     VkPipeline buildPipeline(VkDevice t_device, VkRenderPass t_pass);
+};
+
+struct MeshPushConstants
+{
+    glm::vec4 m_data;
+    glm::mat4 m_rendererMatrix;
 };
 
 class ViEngine
@@ -92,6 +99,7 @@ public:
 
     //Mesh
     VkPipeline m_meshPipeline;
+    VkPipelineLayout m_meshPipelineLayout;
     Mesh m_triangleMesh;
 
     void init();

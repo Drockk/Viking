@@ -12,6 +12,8 @@
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
 
+#include <glm/gtx/transform.hpp>
+
 #define VK_CHECK(x)                                                 \
     do                                                              \
     {                                                               \
@@ -125,6 +127,29 @@ void ViEngine::draw()
     vkCmdBindVertexBuffers(cmd, 0, 1, &m_triangleMesh.m_vertexBuffer.m_buffer, &offset);
 
     //we can now draw the mesh
+    vkCmdDraw(cmd, m_triangleMesh.m_vertices.size(), 1, 0, 0);
+
+    //make a model view matrix for rendering the object
+    //camera position
+    glm::vec3 camPos = { 0.f,0.f,-2.f };
+
+    glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
+    //camera projection
+    glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
+    projection[1][1] *= -1;
+    //model rotation
+    glm::mat4 model = glm::rotate(glm::mat4{ 1.0f }, glm::radians(static_cast<float>(m_frameNumber) * 0.4f), glm::vec3(0, 1, 0));
+
+    //calculate final mesh matrix
+    glm::mat4 mesh_matrix = projection * view * model;
+
+    MeshPushConstants constants{};
+    constants.m_rendererMatrix = mesh_matrix;
+
+    //upload the matrix to the GPU via push constants
+    vkCmdPushConstants(cmd, m_meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &constants);
+
+    //we can now draw
     vkCmdDraw(cmd, m_triangleMesh.m_vertices.size(), 1, 0, 0);
 
     //finalize the render pass
@@ -464,6 +489,23 @@ void ViEngine::initPipelines()
     //clear the shader stages for the builder
     pipelineBuilder.m_shaderStages.clear();
 
+    //We start from just the default empty pipeline layout info
+    VkPipelineLayoutCreateInfo meshPipelineLayoutInfo = vkinit::pipelineLayoutCreateInfo();
+
+    //setup push constants
+    VkPushConstantRange pushConstant;
+    //this push constant range starts at the beginning
+    pushConstant.offset = 0;
+    //this push constant range takes up the size of a MeshPushConstants struct
+    pushConstant.size = sizeof(MeshPushConstants);
+    //this push constant range is accessible only in the vertex shader
+    pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    meshPipelineLayoutInfo.pPushConstantRanges = &pushConstant;
+    meshPipelineLayoutInfo.pushConstantRangeCount = 1;
+
+    VK_CHECK(vkCreatePipelineLayout(m_device, &meshPipelineLayoutInfo, nullptr, &m_meshPipelineLayout));
+
     //compile mesh vertex shader
     VkShaderModule meshVertShader;
     if (!loadShaderModule(R"(D:\projekty\Viking\Shaders\tri_mesh.vert.spv)", &meshVertShader))
@@ -480,23 +522,23 @@ void ViEngine::initPipelines()
     //make sure that triangleFragShader is holding the compiled colored_triangle.frag
     pipelineBuilder.m_shaderStages.push_back(vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, triangleFragShader));
 
+    pipelineBuilder.m_pipelineLayout = m_meshPipelineLayout;
+
     //build the mesh triangle pipeline
     m_meshPipeline = pipelineBuilder.buildPipeline(m_device, m_renderPass);
 
     //deleting all of the vulkan shaders
     vkDestroyShaderModule(m_device, meshVertShader, nullptr);
-//    vkDestroyShaderModule(_device, redTriangleVertShader, nullptr);
-//    vkDestroyShaderModule(_device, redTriangleFragShader, nullptr);
     vkDestroyShaderModule(m_device, triangleFragShader, nullptr);
     vkDestroyShaderModule(m_device, triangleVertexShader, nullptr);
 
     //adding the pipelines to the deletion queue
-    m_mainDeletionQueue.push_function([=]() {
-//        vkDestroyPipeline(m_device, m_redTrianglePipeline, nullptr);
+    m_mainDeletionQueue.push_function([=, this]() {
         vkDestroyPipeline(m_device, m_trianglePipeline, nullptr);
         vkDestroyPipeline(m_device, m_meshPipeline, nullptr);
 
         vkDestroyPipelineLayout(m_device, m_trianglePipelineLayout, nullptr);
+        vkDestroyPipelineLayout(m_device, m_meshPipelineLayout, nullptr);
     });
 }
 
