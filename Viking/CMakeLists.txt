@@ -11,7 +11,9 @@ add_executable(Viking   "main.cpp" "vk_engine.cpp" "vk_initializers.cpp"
         vk_mesh.cpp)
 
 target_include_directories(Viking
-	PUBLIC ${VULKAN_INCLUDE_DIRS}
+	PUBLIC
+        ${VULKAN_INCLUDE_DIRS}
+        ${PROJECT_SOURCE_DIR}/../dependencies/tinyobjloader
 )
 
 CPMAddPackage("gh:glfw/glfw#3.3.8")

@@ -102,6 +102,8 @@ public:
     VkPipelineLayout m_meshPipelineLayout;
     Mesh m_triangleMesh;
 
+    Mesh m_monkeyMesh;
+
     void init();
     void cleanup();
     void draw();

@@ -30,6 +30,8 @@ struct Mesh {
     std::vector<Vertex> m_vertices;
 
     AllocatedBuffer m_vertexBuffer;
+
+    bool loadFromObj(const char* filename);
 };
 
 #endif //VIKING_VK_MESH_HPP

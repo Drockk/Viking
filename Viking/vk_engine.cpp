@@ -124,10 +124,10 @@ void ViEngine::draw()
 
     //bind the mesh vertex buffer with offset 0
     VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(cmd, 0, 1, &m_triangleMesh.m_vertexBuffer.m_buffer, &offset);
+    vkCmdBindVertexBuffers(cmd, 0, 1, &m_monkeyMesh.m_vertexBuffer.m_buffer, &offset);
 
     //we can now draw the mesh
-    vkCmdDraw(cmd, m_triangleMesh.m_vertices.size(), 1, 0, 0);
+    vkCmdDraw(cmd, m_monkeyMesh.m_vertices.size(), 1, 0, 0);
 
     //make a model view matrix for rendering the object
     //camera position
@@ -600,9 +600,11 @@ void ViEngine::loadMeshes()
     m_triangleMesh.m_vertices[1].color = { 0.f, 1.f, 0.0f }; //pure green
     m_triangleMesh.m_vertices[2].color = { 0.f, 1.f, 0.0f }; //pure green
 
-    // We don't care about the vertex normals
+    //Load the monkey
+    m_monkeyMesh.loadFromObj(R"(D:\projekty\Viking\Assets\monkey_smooth.obj)");
 
     uploadMesh(m_triangleMesh);
+    uploadMesh(m_monkeyMesh);
 }
 
 void ViEngine::uploadMesh(Mesh &t_mesh)
