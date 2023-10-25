@@ -41,6 +41,9 @@ public:
     VkPipelineMultisampleStateCreateInfo m_multisampling;
     VkPipelineLayout m_pipelineLayout;
 
+    //others
+    VkPipelineDepthStencilStateCreateInfo m_depthStencil;
+
     VkPipeline buildPipeline(VkDevice t_device, VkRenderPass t_pass);
 };
 
@@ -103,6 +106,12 @@ public:
     Mesh m_triangleMesh;
 
     Mesh m_monkeyMesh;
+
+    VkImageView m_depthImageView;
+    AllocatedImage m_depthImage;
+
+    //the format for the depth image
+    VkFormat m_depthFormat;
 
     void init();
     void cleanup();
