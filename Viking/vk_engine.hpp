@@ -10,6 +10,17 @@
 
 struct GLFWwindow;
 
+struct Material {
+    VkPipeline pipeline;
+    VkPipelineLayout pipelineLayout;
+};
+
+struct RenderObject {
+    Mesh* mesh;
+    Material* material;
+    glm::mat4 transformMatrix;
+};
+
 struct DeletionQueue
 {
     std::deque<std::function<void()>> deletors;
@@ -113,6 +124,24 @@ public:
     //the format for the depth image
     VkFormat m_depthFormat;
 
+    //default array of render-able objects
+    std::vector<RenderObject> m_renderables;
+
+    std::unordered_map<std::string,Material> m_materials;
+    std::unordered_map<std::string,Mesh> m_meshes;
+
+    //Create material and add it to the map
+    Material* createMaterial(VkPipeline pipeline, VkPipelineLayout layout,const std::string& name);
+
+    //Returns nullptr if it can't be found
+    Material* getMaterial(const std::string& name);
+
+    //Returns nullptr if it can't be found
+    Mesh* getMesh(const std::string& name);
+
+    //Our draw function
+    static void drawObjects(VkCommandBuffer cmd,RenderObject* first, int count);
+
     void init();
     void cleanup();
     void draw();
@@ -126,6 +155,7 @@ private:
     void initFramebuffers();
     void initSyncStructures();
     void initPipelines();
+    void initScene();
 
     void loadMeshes();
     void uploadMesh(Mesh& t_mesh);

@@ -51,6 +51,8 @@ void ViEngine::init()
 
     loadMeshes();
 
+    initScene();
+
     m_isInitialized = true;
 }
 
@@ -81,7 +83,7 @@ void ViEngine::draw()
     // we can safely reset the command buffer to begin recording again.
     VK_CHECK(vkResetCommandBuffer(m_mainCommandBuffer, 0));
 
-    //request image from the swap-chain
+    //request image from the swapchain
     uint32_t swapchainImageIndex;
     VK_CHECK(vkAcquireNextImageKHR(m_device, m_swapchain, 1000000000, m_presentSemaphore, nullptr, &swapchainImageIndex));
 
@@ -103,8 +105,8 @@ void ViEngine::draw()
     VkClearValue depthClear;
     depthClear.depthStencil.depth = 1.f;
 
-    //Start the main render-pass.
-    //We will use the clear color from above, and the framebuffer of the index the swap-chain gave us
+    //Start the main renderpass.
+    //We will use the clear color from above, and the framebuffer of the index the swapchain gave us
     auto rpInfo = vkinit::renderpassBeginInfo(m_renderPass, m_windowExtent, m_framebuffers[swapchainImageIndex]);
 
     //connect clear values
@@ -116,35 +118,7 @@ void ViEngine::draw()
 
     vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_meshPipeline);
-
-    //bind the mesh vertex buffer with offset 0
-    VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(cmd, 0, 1, &m_monkeyMesh.m_vertexBuffer.m_buffer, &offset);
-
-    //make a model view matrix for rendering the object
-    //camera position
-    glm::vec3 camPos = { 0.f,0.f,-2.f };
-
-    auto view = glm::translate(glm::mat4(1.f), camPos);
-    //camera projection
-    auto projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
-    projection[1][1] *= -1;
-    //model rotation
-    auto model = glm::rotate(glm::mat4{ 1.0f }, glm::radians(static_cast<float>(m_frameNumber) * 0.4f), glm::vec3(0, 1, 0));
-
-    //calculate final mesh matrix
-    auto mesh_matrix = projection * view * model;
-
-    MeshPushConstants constants{};
-    constants.m_rendererMatrix = mesh_matrix;
-
-    //upload the matrix to the gpu via pushconstants
-    vkCmdPushConstants(cmd, m_meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &constants);
-
-    //we can now draw the mesh
-    vkCmdDraw(cmd, static_cast<uint32_t>(m_monkeyMesh.m_vertices.size()), 1, 0, 0);
+    drawObjects(cmd, m_renderables.data(), static_cast<int>(m_renderables.size()));
 
     //finalize the render pass
     vkCmdEndRenderPass(cmd);
@@ -467,35 +441,44 @@ void ViEngine::initSyncStructures()
 
 void ViEngine::initPipelines()
 {
-    VkShaderModule triangleFragShader;
-    if (!loadShaderModule(R"(D:\projekty\Viking\Shaders\triangle.frag.spv)", &triangleFragShader)) {
-        std::cout << "Error when building the triangle fragment shader module" << std::endl;
-    }
-    else {
-        std::cout << "Triangle fragment shader successfully loaded" << std::endl;
+    VkShaderModule colorMeshShader;
+    if (!loadShaderModule(R"(D:\projekty\Viking\Shaders\triangle.frag.spv)", &colorMeshShader)) {
+        std::cout << "Error when building the colored mesh shader" << std::endl;
     }
 
-    VkShaderModule triangleVertexShader;
-    if (!loadShaderModule(R"(D:\projekty\Viking\Shaders\triangle.vert.spv)", &triangleVertexShader)) {
-        std::cout << "Error when building the triangle vertex shader module" << std::endl;
+    VkShaderModule meshVertShader;
+    if (!loadShaderModule(R"(D:\projekty\Viking\Shaders\tri_mesh.vert.spv)", &meshVertShader)) {
+        std::cout << "Error when building the mesh vertex shader module" << std::endl;
     }
-    else {
-        std::cout << "Triangle vertex shader successfully loaded" << std::endl;
-    }
-
-    //build the pipeline layout that controls the inputs/outputs of the shader
-    //we are not using descriptor sets or other systems yet, so no need to use anything other than empty default
-    auto pipelineLayoutInfo = vkinit::pipelineLayoutCreateInfo();
-
-    VK_CHECK(vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &m_trianglePipelineLayout));
 
     //Build the stage-create-info for both vertex and fragment stages.
     // This lets the pipeline know the shader modules per stage
     PipelineBuilder pipelineBuilder;
 
-    pipelineBuilder.m_shaderStages.emplace_back(vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, triangleVertexShader));
-    pipelineBuilder.m_shaderStages.emplace_back(vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, triangleFragShader));
+    pipelineBuilder.m_shaderStages.emplace_back(vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, meshVertShader));
+    pipelineBuilder.m_shaderStages.emplace_back(vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, colorMeshShader));
 
+    //we start from just the default empty pipeline layout info
+    VkPipelineLayoutCreateInfo mesh_pipeline_layout_info = vkinit::pipelineLayoutCreateInfo();
+
+    //setup push constants
+    VkPushConstantRange push_constant;
+    //offset 0
+    push_constant.offset = 0;
+    //size of a MeshPushConstant struct
+    push_constant.size = sizeof(MeshPushConstants);
+    //for the vertex shader
+    push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    mesh_pipeline_layout_info.pPushConstantRanges = &push_constant;
+    mesh_pipeline_layout_info.pushConstantRangeCount = 1;
+
+    VkPipelineLayout meshPipLayout;
+
+    VK_CHECK(vkCreatePipelineLayout(m_device, &mesh_pipeline_layout_info, nullptr, &meshPipLayout));
+
+    //hook the push constants layout
+    pipelineBuilder.m_pipelineLayout = meshPipLayout;
 
     //Vertex input controls how to read vertices from vertex buffers. We aren't using it yet
     pipelineBuilder.m_vertexInputInfo = vkinit::vertexInputStateCreateInfo();
@@ -524,18 +507,8 @@ void ViEngine::initPipelines()
     //a single blend attachment with no blending and writing to RGBA
     pipelineBuilder.m_colorBlendAttachment = vkinit::colorBlendAttachmentState();
 
-    //use the triangle layout we created
-    pipelineBuilder.m_pipelineLayout = m_trianglePipelineLayout;
-
-
-    //default depth-testing
+    //default depthtesting
     pipelineBuilder.m_depthStencil = vkinit::depthStencilCreateInfo(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
-
-    //finally, build the pipeline
-    m_trianglePipeline = pipelineBuilder.buildPipeline(m_device, m_renderPass);
-
-    //clear the shader stages for the builder
-    pipelineBuilder.m_shaderStages.clear();
 
     //build the mesh pipeline
     auto vertexDescription = Vertex::getVertexDescription();
@@ -547,56 +520,17 @@ void ViEngine::initPipelines()
     pipelineBuilder.m_vertexInputInfo.pVertexBindingDescriptions = vertexDescription.m_bindings.data();
     pipelineBuilder.m_vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexDescription.m_bindings.size());
 
-    //clear the shader stages for the builder
-    pipelineBuilder.m_shaderStages.clear();
-
-    //compile mesh vertex shader
-    VkShaderModule meshVertShader;
-    if (!loadShaderModule(R"(D:\projekty\Viking\Shaders\tri_mesh.vert.spv)", &meshVertShader)) {
-        std::cout << "Error when building the triangle vertex shader module" << std::endl;
-    }
-    else {
-        std::cout << "Red Triangle vertex shader successfully loaded" << std::endl;
-    }
-
-    //add the other shaders
-    pipelineBuilder.m_shaderStages.emplace_back(vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, meshVertShader));
-
-    //make sure that triangleFragShader is holding the compiled colored_triangle.frag
-    pipelineBuilder.m_shaderStages.emplace_back(vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, triangleFragShader));
-
-    //we start from just the default empty pipeline layout info
-    VkPipelineLayoutCreateInfo meshPipelineLayoutInfo = vkinit::pipelineLayoutCreateInfo();
-
-    //setup push constants
-    VkPushConstantRange pushConstant;
-    //offset 0
-    pushConstant.offset = 0;
-    //size of a MeshPushConstant struct
-    pushConstant.size = sizeof(MeshPushConstants);
-    //for the vertex shader
-    pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-    meshPipelineLayoutInfo.pPushConstantRanges = &pushConstant;
-    meshPipelineLayoutInfo.pushConstantRangeCount = 1;
-
-    VK_CHECK(vkCreatePipelineLayout(m_device, &meshPipelineLayoutInfo, nullptr, &m_meshPipelineLayout));
-
-    //hook the push constants layout
-    pipelineBuilder.m_pipelineLayout = m_meshPipelineLayout;
     //build the mesh triangle pipeline
-    m_meshPipeline = pipelineBuilder.buildPipeline(m_device, m_renderPass);
+    auto meshPipeline = pipelineBuilder.buildPipeline(m_device, m_renderPass);
+
+    createMaterial(meshPipeline, meshPipLayout, "defaultmesh");
 
     vkDestroyShaderModule(m_device, meshVertShader, nullptr);
-    vkDestroyShaderModule(m_device, triangleFragShader, nullptr);
-    vkDestroyShaderModule(m_device, triangleVertexShader, nullptr);
+    vkDestroyShaderModule(m_device, colorMeshShader, nullptr);
 
     m_mainDeletionQueue.push_function([=, this]() {
-        vkDestroyPipeline(m_device, m_trianglePipeline, nullptr);
-        vkDestroyPipeline(m_device, m_meshPipeline, nullptr);
-
-        vkDestroyPipelineLayout(m_device, m_trianglePipelineLayout, nullptr);
-        vkDestroyPipelineLayout(m_device, m_meshPipelineLayout, nullptr);
+        vkDestroyPipeline(m_device, meshPipeline, nullptr);
+        vkDestroyPipelineLayout(m_device, meshPipLayout, nullptr);
     });
 }
 
@@ -645,24 +579,26 @@ bool ViEngine::loadShaderModule(const char* t_filePath, VkShaderModule* t_outSha
 
 void ViEngine::loadMeshes()
 {
-    // Make the array 3 vertices long
     m_triangleMesh.m_vertices.resize(3);
 
-    // Vertex positions
-    m_triangleMesh.m_vertices[0].position = { 1.f, 1.f, 0.0f };
-    m_triangleMesh.m_vertices[1].position = {-1.f, 1.f, 0.0f };
-    m_triangleMesh.m_vertices[2].position = { 0.f,-1.f, 0.0f };
+    m_triangleMesh.m_vertices[0].position = { 1.f, 1.f, 0.5f };
+    m_triangleMesh.m_vertices[1].position = {-1.f, 1.f, 0.5f };
+    m_triangleMesh.m_vertices[2].position = { 0.f,-1.f, 0.5f };
 
-    //vertex colors, all green
     m_triangleMesh.m_vertices[0].color = { 0.f, 1.f, 0.0f }; //pure green
     m_triangleMesh.m_vertices[1].color = { 0.f, 1.f, 0.0f }; //pure green
     m_triangleMesh.m_vertices[2].color = { 0.f, 1.f, 0.0f }; //pure green
 
-    //Load the monkey
+
     m_monkeyMesh.loadFromObj(R"(D:\projekty\Viking\Assets\monkey_smooth.obj)");
 
     uploadMesh(m_triangleMesh);
     uploadMesh(m_monkeyMesh);
+
+    //Note that we are copying them.
+    // Eventually we will delete the hardcoded m_monkey and m_triangle meshes, so it's no problem now.
+    m_meshes["monkey"] = m_monkeyMesh;
+    m_meshes["triangle"] = m_triangleMesh;
 }
 
 void ViEngine::uploadMesh(Mesh &t_mesh)
@@ -697,6 +633,104 @@ void ViEngine::uploadMesh(Mesh &t_mesh)
     memcpy(data, t_mesh.m_vertices.data(), t_mesh.m_vertices.size() * sizeof(Vertex));
 
     vmaUnmapMemory(m_allocator, t_mesh.m_vertexBuffer.m_allocation);
+}
+
+Material* ViEngine::createMaterial(VkPipeline pipeline, VkPipelineLayout layout, const std::string &name) {
+    Material mat = {};
+    mat.pipeline = pipeline;
+    mat.pipelineLayout = layout;
+    m_materials[name] = mat;
+    return &m_materials[name];
+}
+
+Material* ViEngine::getMaterial(const std::string &name) {
+    //Search for the object, and return nullptr if not found
+    auto it = m_materials.find(name);
+    if (it == m_materials.end()) {
+        return nullptr;
+    }
+    else {
+        return &(*it).second;
+    }
+}
+
+Mesh* ViEngine::getMesh(const std::string &name) {
+    auto it = m_meshes.find(name);
+    if (it == m_meshes.end()) {
+        return nullptr;
+    }
+    else {
+        return &(*it).second;
+    }
+}
+
+void ViEngine::drawObjects(VkCommandBuffer cmd, RenderObject *first, int count) {
+    //make a model view matrix for rendering the object
+    //camera view
+    glm::vec3 camPos = { 0.f,-6.f,-10.f };
+
+    auto view = glm::translate(glm::mat4(1.f), camPos);
+    //camera projection
+    auto projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
+    projection[1][1] *= -1;
+
+    Mesh* lastMesh = nullptr;
+    Material* lastMaterial = nullptr;
+    for (int i = 0; i < count; i++)
+    {
+        auto& object = first[i];
+
+        //only bind the pipeline if it doesn't match with the already bound one
+        if (object.material != lastMaterial) {
+
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipeline);
+            lastMaterial = object.material;
+        }
+
+
+        auto model = object.transformMatrix;
+        //final render matrix, that we are calculating on the cpu
+        auto mesh_matrix = projection * view * model;
+
+        MeshPushConstants constants = {};
+        constants.m_rendererMatrix = mesh_matrix;
+
+        //upload the mesh to the gpu via pushconstants
+        vkCmdPushConstants(cmd, object.material->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &constants);
+
+        //only bind the mesh if its different one from the last bind
+        if (object.mesh != lastMesh) {
+            //bind the mesh vertex buffer with offset 0
+            VkDeviceSize offset = 0;
+            vkCmdBindVertexBuffers(cmd, 0, 1, &object.mesh->m_vertexBuffer.m_buffer, &offset);
+            lastMesh = object.mesh;
+        }
+        //we can now draw
+        vkCmdDraw(cmd, object.mesh->m_vertices.size(), 1, 0, 0);
+    }
+}
+
+void ViEngine::initScene() {
+    RenderObject monkey = {};
+    monkey.mesh = getMesh("monkey");
+    monkey.material = getMaterial("defaultmesh");
+    monkey.transformMatrix = glm::mat4{ 1.0f };
+
+    m_renderables.push_back(monkey);
+
+    for (int x = -20; x <= 20; x++) {
+        for (int y = -20; y <= 20; y++) {
+
+            RenderObject tri = {};
+            tri.mesh = getMesh("triangle");
+            tri.material = getMaterial("defaultmesh");
+            auto translation = glm::translate(glm::mat4{ 1.0 }, glm::vec3(x, 0, y));
+            auto scale = glm::scale(glm::mat4{ 1.0 }, glm::vec3(0.2, 0.2, 0.2));
+            tri.transformMatrix = translation * scale;
+
+            m_renderables.push_back(tri);
+        }
+    }
 }
 
 VkPipeline PipelineBuilder::buildPipeline(VkDevice t_device, VkRenderPass t_pass)
