@@ -60,7 +60,9 @@ void ViEngine::cleanup()
 {
     if (m_isInitialized) {
         // Make sure the GPU has stopped doing its things
-        vkWaitForFences(m_device, 1, &m_renderFence, true, 1000000000);
+        --m_frameNumber;
+        vkWaitForFences(m_device, 1, &getCurrentFrame().m_renderFence, true, 1000000000);
+        ++m_frameNumber;
 
         m_mainDeletionQueue.flush();
 
@@ -76,25 +78,26 @@ void ViEngine::cleanup()
 void ViEngine::draw()
 {
     //Wait until the gpu has finished rendering the last frame. Timeout of 1 second
-    VK_CHECK(vkWaitForFences(m_device, 1, &m_renderFence, true, 1000000000));
-    VK_CHECK(vkResetFences(m_device, 1, &m_renderFence));
+    auto renderFence = getCurrentFrame().m_renderFence;
+    VK_CHECK(vkWaitForFences(m_device, 1, &renderFence, true, 1000000000));
+    VK_CHECK(vkResetFences(m_device, 1, &renderFence));
 
     //now that we are sure that the commands finished executing,
     // we can safely reset the command buffer to begin recording again.
-    VK_CHECK(vkResetCommandBuffer(m_mainCommandBuffer, 0));
+    auto commandBuffer = getCurrentFrame().m_mainCommandBuffer;
+    VK_CHECK(vkResetCommandBuffer(commandBuffer, 0));
 
     //request image from the swapchain
     uint32_t swapchainImageIndex{};
-    VK_CHECK(vkAcquireNextImageKHR(m_device, m_swapchain, 1000000000, m_presentSemaphore, nullptr, &swapchainImageIndex));
-
-    //naming it cmd for shorter writing
-    auto cmd = m_mainCommandBuffer;
+    auto presentSemaphore = getCurrentFrame().m_presentSemaphore;
+    auto renderSemaphore = getCurrentFrame().m_renderSemaphore;
+    VK_CHECK(vkAcquireNextImageKHR(m_device, m_swapchain, 1000000000, presentSemaphore, nullptr, &swapchainImageIndex));
 
     //Begin the command buffer recording.
     // We will use this command buffer exactly once, so we want to let vulkan know that
     auto cmdBeginInfo = vkinit::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-    VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+    VK_CHECK(vkBeginCommandBuffer(commandBuffer, &cmdBeginInfo));
 
     //Make a clear-color from frame number. This will flash with a 120-frame period.
     VkClearValue clearValue{};
@@ -116,33 +119,33 @@ void ViEngine::draw()
 
     rpInfo.pClearValues = &clearValues[0];
 
-    vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(commandBuffer, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    drawObjects(cmd, m_renderables.data(), static_cast<int>(m_renderables.size()));
+    drawObjects(commandBuffer, m_renderables.data(), static_cast<int>(m_renderables.size()));
 
     //finalize the render pass
-    vkCmdEndRenderPass(cmd);
+    vkCmdEndRenderPass(commandBuffer);
     //finalize the command buffer (we can no longer add commands, but it can now be executed)
-    VK_CHECK(vkEndCommandBuffer(cmd));
+    VK_CHECK(vkEndCommandBuffer(commandBuffer));
 
     //prepare the submission to the queue.
     //we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
     //we will signal the _renderSemaphore, to signal that rendering has finished
 
-    auto submit = vkinit::submitInfo(&cmd);
+    auto submit = vkinit::submitInfo(&commandBuffer);
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     submit.pWaitDstStageMask = &waitStage;
 
     submit.waitSemaphoreCount = 1;
-    submit.pWaitSemaphores = &m_presentSemaphore;
+    submit.pWaitSemaphores = &presentSemaphore;
 
     submit.signalSemaphoreCount = 1;
-    submit.pSignalSemaphores = &m_renderSemaphore;
+    submit.pSignalSemaphores = &renderSemaphore;
 
     //submit command buffer to the queue and execute it.
     // _renderFence will now block until the graphic commands finish execution
-    VK_CHECK(vkQueueSubmit(m_graphicsQueue, 1, &submit, m_renderFence));
+    VK_CHECK(vkQueueSubmit(m_graphicsQueue, 1, &submit, renderFence));
 
     //prepare present
     // this will put the image we just rendered to into the visible window.
@@ -153,7 +156,7 @@ void ViEngine::draw()
     presentInfo.pSwapchains = &m_swapchain;
     presentInfo.swapchainCount = 1;
 
-    presentInfo.pWaitSemaphores = &m_renderSemaphore;
+    presentInfo.pWaitSemaphores = &renderSemaphore;
     presentInfo.waitSemaphoreCount = 1;
 
     presentInfo.pImageIndices = &swapchainImageIndex;
@@ -174,20 +177,21 @@ void ViEngine::run()
 
 void ViEngine::initCommands()
 {
-    //create a command pool for commands submitted to the graphics queue.
-    //we also want the pool to allow for resetting of individual command buffers
+    //Create a command pool for commands submitted to the graphics queue.
+    //We also want the pool to allow for resetting of individual command buffers
     auto commandPoolInfo = vkinit::commandPoolCreateInfo(m_graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+    for (auto i{0}; i < FRAME_OVERLAP; ++i) {
+        VK_CHECK(vkCreateCommandPool(m_device, &commandPoolInfo, nullptr, &m_frames[i].m_commandPool));
 
-    VK_CHECK(vkCreateCommandPool(m_device, &commandPoolInfo, nullptr, &m_commandPool));
+        //Allocate the default command buffer that we will use for rendering
+        auto commandAllocateInfo = vkinit::commandBufferAllocateInfo(m_frames[i].m_commandPool, 1);
 
-    //allocate the default command buffer that we will use for rendering
-    auto cmdAllocInfo = vkinit::commandBufferAllocateInfo(m_commandPool, 1);
+        VK_CHECK(vkAllocateCommandBuffers(m_device, &commandAllocateInfo, &m_frames[i].m_mainCommandBuffer));
 
-    VK_CHECK(vkAllocateCommandBuffers(m_device, &cmdAllocInfo, &m_mainCommandBuffer));
-
-    m_mainDeletionQueue.push_function([=, this]() {
-        vkDestroyCommandPool(m_device, m_commandPool, nullptr);
+        m_mainDeletionQueue.push_function([=, this]() {
+            vkDestroyCommandPool(m_device, m_frames[i].m_commandPool, nullptr);
         });
+    }
 }
 
 void ViEngine::initSwapchain()
@@ -419,24 +423,25 @@ void ViEngine::initFramebuffers()
 void ViEngine::initSyncStructures()
 {
     auto fenceCreateInfo = vkinit::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
-
-    VK_CHECK(vkCreateFence(m_device, &fenceCreateInfo, nullptr, &m_renderFence));
-
-    //enqueue the destruction of the fence
-    m_mainDeletionQueue.push_function([=, this]() {
-        vkDestroyFence(m_device, m_renderFence, nullptr);
-        });
-
     auto semaphoreCreateInfo = vkinit::semaphoreCreateInfo();
 
-    VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCreateInfo, nullptr, &m_presentSemaphore));
-    VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCreateInfo, nullptr, &m_renderSemaphore));
+    for (int i{0}; i < FRAME_OVERLAP; ++i) {
+        VK_CHECK(vkCreateFence(m_device, &fenceCreateInfo, nullptr, &m_frames[i].m_renderFence));
 
-    //enqueue the destruction of semaphores
-    m_mainDeletionQueue.push_function([=, this]() {
-        vkDestroySemaphore(m_device, m_presentSemaphore, nullptr);
-        vkDestroySemaphore(m_device, m_renderSemaphore, nullptr);
+        //Enqueue the destruction of the fence
+        m_mainDeletionQueue.push_function([=, this]() {
+            vkDestroyFence(m_device, m_frames[i].m_renderFence, nullptr);
         });
+
+        VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCreateInfo, nullptr, &m_frames[i].m_presentSemaphore));
+        VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCreateInfo, nullptr, &m_frames[i].m_renderSemaphore));
+
+        //enqueue the destruction of semaphores
+        m_mainDeletionQueue.push_function([=, this]() {
+            vkDestroySemaphore(m_device, m_frames[i].m_presentSemaphore, nullptr);
+            vkDestroySemaphore(m_device, m_frames[i].m_renderSemaphore, nullptr);
+        });
+    }
 }
 
 void ViEngine::initPipelines()
@@ -729,6 +734,10 @@ void ViEngine::initScene()
             m_renderables.push_back(tri);
         }
     }
+}
+
+FrameData& ViEngine::getCurrentFrame() {
+    return m_frames[m_frameNumber % FRAME_OVERLAP];
 }
 
 VkPipeline PipelineBuilder::buildPipeline(VkDevice t_device, VkRenderPass t_pass)
