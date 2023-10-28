@@ -101,6 +101,17 @@ struct GPUObjectData {
     glm::mat4 modelMatrix;
 };
 
+struct UploadContext {
+    VkFence _uploadFence{};
+    VkCommandPool _commandPool{};
+    VkCommandBuffer _commandBuffer{};
+};
+
+struct Texture {
+    AllocatedImage image;
+    VkImageView imageView;
+};
+
 constexpr uint32_t FRAME_OVERLAP{2};
 
 class ViEngine
@@ -153,6 +164,11 @@ public:
     GPUSceneData _sceneParameters;
     AllocatedBuffer _sceneParameterBuffer;
 
+    UploadContext _uploadContext{};
+
+    //texture hashmap
+    std::unordered_map<std::string, Texture> _loadedTextures;
+
     //initializes everything in the engine
     void init();
 
@@ -190,6 +206,11 @@ public:
     AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 
     size_t pad_uniform_buffer_size(size_t originalSize);
+
+    void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
+
+    void load_images();
+
 private:
 
     void init_commands();

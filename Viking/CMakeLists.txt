@@ -10,12 +10,15 @@ find_package(Vulkan REQUIRED)
 add_executable(Viking   "main.cpp" "vk_engine.cpp" "vk_initializers.cpp"
         vk_mesh.cpp
         Core/Window.cpp
-        Core/Window.hpp)
+        Core/Window.hpp
+        vk_textures.hpp
+        vk_textures.cpp)
 
 target_include_directories(Viking
 	PUBLIC
         ${VULKAN_INCLUDE_DIRS}
         ${PROJECT_SOURCE_DIR}/../dependencies/tinyobjloader
+        ${PROJECT_SOURCE_DIR}/../dependencies/stb
 )
 
 CPMAddPackage("gh:glfw/glfw#3.3.8")

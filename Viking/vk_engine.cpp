@@ -1,6 +1,7 @@
 
 #include "vk_engine.hpp"
 #include "vk_initializers.hpp"
+#include "vk_textures.hpp"
 #include "vk_types.hpp"
 
 #include <stdexcept>
@@ -9,8 +10,6 @@
 
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
-
-#include <glm/gtx/transform.hpp>
 
 #include <VkBootstrap.h>
 
@@ -43,6 +42,7 @@ void ViEngine::init()
     init_pipelines();
 
     load_meshes();
+    load_images();
 
     init_scene();
 
@@ -283,7 +283,7 @@ void ViEngine::init_swapchain()
     vmaCreateImage(_allocator, &dimg_info, &dimg_allocinfo, &_depthImage.m_image, &_depthImage.m_allocation, nullptr);
 
     //build an image-view for the depth image to use for rendering
-    VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(_depthFormat, _depthImage.m_image, VK_IMAGE_ASPECT_DEPTH_BIT);;
+    VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(_depthFormat, _depthImage.m_image, VK_IMAGE_ASPECT_DEPTH_BIT);
 
     VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depthImageView));
 
@@ -412,7 +412,6 @@ void ViEngine::init_commands()
     //create a command pool for commands submitted to the graphics queue.
     //we also want the pool to allow for resetting of individual command buffers
     auto commandPoolInfo = vkinit::command_pool_create_info(_graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-
     for (int i = 0; i < FRAME_OVERLAP; ++i) {
         VK_CHECK(vkCreateCommandPool(_device, &commandPoolInfo, nullptr, &_frames[i]._commandPool));
 
@@ -425,23 +424,43 @@ void ViEngine::init_commands()
             vkDestroyCommandPool(_device, _frames[i]._commandPool, nullptr);
         });
     }
+
+    VkCommandPoolCreateInfo uploadCommandPoolInfo = vkinit::command_pool_create_info(_graphicsQueueFamily);
+    //Create pool for upload context
+    VK_CHECK(vkCreateCommandPool(_device, &uploadCommandPoolInfo, nullptr, &_uploadContext._commandPool));
+
+    _mainDeletionQueue.push_function([=, this]() {
+        vkDestroyCommandPool(_device, _uploadContext._commandPool, nullptr);
+    });
+
+    //Allocate the default command buffer that we will use for the instant commands
+    VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::command_buffer_allocate_info(_uploadContext._commandPool, 1);
+
+    VK_CHECK(vkAllocateCommandBuffers(_device, &cmdAllocInfo, &_uploadContext._commandBuffer));
 }
 
 void ViEngine::init_sync_structures()
 {
-    //Create syncronization structures
+    //Create synchronization structures
     //one fence to control when the gpu has finished rendering the frame,
-    //and 2 semaphores to syncronize rendering with swapchain
+    //and 2 semaphores to synchronize rendering with swap-chain
     //we want the fence to start signaled, so we can wait on it on the first frame
     VkFenceCreateInfo fenceCreateInfo = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
 
     VkSemaphoreCreateInfo semaphoreCreateInfo = vkinit::semaphore_create_info();
 
+    VkFenceCreateInfo uploadFenceCreateInfo = vkinit::fence_create_info();
+
+    VK_CHECK(vkCreateFence(_device, &uploadFenceCreateInfo, nullptr, &_uploadContext._uploadFence));
+    _mainDeletionQueue.push_function([=, this]() {
+        vkDestroyFence(_device, _uploadContext._uploadFence, nullptr);
+    });
+
     for (int i = 0; i < FRAME_OVERLAP; i++) {
         VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &_frames[i]._renderFence));
 
         //enqueue the destruction of the fence
-        _mainDeletionQueue.push_function([=]() {
+        _mainDeletionQueue.push_function([=, this]() {
             vkDestroyFence(_device, _frames[i]._renderFence, nullptr);
         });
 
@@ -684,39 +703,63 @@ void ViEngine::load_meshes()
 
 void ViEngine::upload_mesh(Mesh& mesh)
 {
+    const auto bufferSize= mesh.vertices.size() * sizeof(Vertex);
+    //allocate staging buffer
+    VkBufferCreateInfo stagingBufferInfo = {};
+    stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    stagingBufferInfo.pNext = nullptr;
+    stagingBufferInfo.size = bufferSize;
+    stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    //Let the VMA library know that this data should be on CPU RAM
+    VmaAllocationCreateInfo vmaAllocInfo = {};
+    vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+    AllocatedBuffer stagingBuffer;
+    //Allocate the buffer
+    VK_CHECK(vmaCreateBuffer(_allocator, &stagingBufferInfo, &vmaAllocInfo,
+                             &stagingBuffer.m_buffer,
+                             &stagingBuffer.m_allocation,
+                             nullptr));
+
+    //Copy vertex data
+    void* data;
+    vmaMapMemory(_allocator, stagingBuffer.m_allocation, &data);
+    memcpy(data, mesh.vertices.data(), mesh.vertices.size() * sizeof(Vertex));
+    vmaUnmapMemory(_allocator, stagingBuffer.m_allocation);
+
     //Allocate vertex buffer
-    VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.pNext = nullptr;
+    VkBufferCreateInfo vertexBufferInfo = {};
+    vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    vertexBufferInfo.pNext = nullptr;
     //This is the total size, in bytes, of the buffer we are allocating
-    bufferInfo.size = mesh.vertices.size() * sizeof(Vertex);
+    vertexBufferInfo.size = bufferSize;
     //This buffer is going to be used as a Vertex Buffer
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-
-    //Let the VMA library know that this data should be writeable by CPU, but also readable by GPU
-    VmaAllocationCreateInfo vmaallocInfo = {};
-    vmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+    //Let the VMA library know that this data should be GPU native
+    vmaAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
     //Allocate the buffer
-    VK_CHECK(vmaCreateBuffer(_allocator, &bufferInfo, &vmaallocInfo,
+    VK_CHECK(vmaCreateBuffer(_allocator, &vertexBufferInfo, &vmaAllocInfo,
                              &mesh.vertexBuffer.m_buffer,
                              &mesh.vertexBuffer.m_allocation,
                              nullptr));
 
-    //Add the destruction of triangle mesh buffer to the deletion queue
-    _mainDeletionQueue.push_function([=]() {
+    immediate_submit([=](VkCommandBuffer cmd) {
+        VkBufferCopy copy;
+        copy.dstOffset = 0;
+        copy.srcOffset = 0;
+        copy.size = bufferSize;
+        vkCmdCopyBuffer(cmd, stagingBuffer.m_buffer, mesh.vertexBuffer.m_buffer, 1, &copy);
+    });
 
+    //Add the destruction of mesh buffer to the deletion queue
+    _mainDeletionQueue.push_function([=, this]() {
         vmaDestroyBuffer(_allocator, mesh.vertexBuffer.m_buffer, mesh.vertexBuffer.m_allocation);
     });
 
-    //copy vertex data
-    void* data;
-    vmaMapMemory(_allocator, mesh.vertexBuffer.m_allocation, &data);
-
-    memcpy(data, mesh.vertices.data(), mesh.vertices.size() * sizeof(Vertex));
-
-    vmaUnmapMemory(_allocator, mesh.vertexBuffer.m_allocation);
+    vmaDestroyBuffer(_allocator, stagingBuffer.m_buffer, stagingBuffer.m_allocation);
 }
 
 Material* ViEngine::create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name)
@@ -1006,5 +1049,47 @@ void ViEngine::init_descriptors()
             vmaDestroyBuffer(_allocator,_frames[i].cameraBuffer.m_buffer, _frames[i].cameraBuffer.m_allocation);
             vmaDestroyBuffer(_allocator, _frames[i].objectBuffer.m_buffer, _frames[i].objectBuffer.m_allocation);
         }
+    });
+}
+
+void ViEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function)
+{
+    VkCommandBuffer cmd = _uploadContext._commandBuffer;
+
+    //Begin the command buffer recording. We will use this command buffer exactly once before resetting, so we tell vulkan that
+    VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+    VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+    //Execute the function
+    function(cmd);
+
+    VK_CHECK(vkEndCommandBuffer(cmd));
+
+    VkSubmitInfo submit = vkinit::submit_info(&cmd);
+
+    //Submit command buffer to the queue and execute it.
+    //_uploadFence will now block until the graphic commands finish execution
+    VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, _uploadContext._uploadFence));
+
+    vkWaitForFences(_device, 1, &_uploadContext._uploadFence, true, 9999999999);
+    vkResetFences(_device, 1, &_uploadContext._uploadFence);
+
+    //Reset the command buffers inside the command pool
+    vkResetCommandPool(_device, _uploadContext._commandPool, 0);
+}
+
+void ViEngine::load_images() {
+    Texture lostEmpire;
+
+    vkutil::load_image_from_file(*this, R"(D:\projekty\Viking\Assets\lost_empire-RGBA.png)", lostEmpire.image);
+
+    VkImageViewCreateInfo imageInfo = vkinit::imageview_create_info(VK_FORMAT_R8G8B8A8_SRGB, lostEmpire.image.m_image, VK_IMAGE_ASPECT_COLOR_BIT);
+    vkCreateImageView(_device, &imageInfo, nullptr, &lostEmpire.imageView);
+
+    _loadedTextures["empire_diffuse"] = lostEmpire;
+
+    _mainDeletionQueue.push_function([=, this]() {
+        vkDestroyImageView(_device, lostEmpire.imageView, nullptr);
     });
 }

@@ -276,6 +276,7 @@ VkDescriptorSetLayoutBinding vkinit::descriptorset_layout_binding(VkDescriptorTy
 
     return setBind;
 }
+
 VkWriteDescriptorSet vkinit::write_descriptor_buffer(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorBufferInfo* bufferInfo , uint32_t binding)
 {
     VkWriteDescriptorSet write{};
