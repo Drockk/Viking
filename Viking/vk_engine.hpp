@@ -53,6 +53,7 @@ struct MeshPushConstants {
 
 
 struct Material {
+    VkDescriptorSet textureSet{VK_NULL_HANDLE}; //texture defaulted to null
     VkPipeline pipeline;
     VkPipelineLayout pipelineLayout;
 };
@@ -168,6 +169,8 @@ public:
 
     //texture hashmap
     std::unordered_map<std::string, Texture> _loadedTextures;
+
+    VkDescriptorSetLayout _singleTextureSetLayout;
 
     //initializes everything in the engine
     void init();

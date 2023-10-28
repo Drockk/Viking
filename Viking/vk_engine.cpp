@@ -478,6 +478,11 @@ void ViEngine::init_sync_structures()
 
 void ViEngine::init_pipelines()
 {
+    VkShaderModule texturedMeshShader;
+    if (!load_shader_module(R"(D:\projekty\Viking\Shaders\textured_lit.frag.spv)", &texturedMeshShader)) {
+        std::cout << "Error when building the textured mesh shader" << std::endl;
+    }
+
     VkShaderModule colorMeshShader;
     if (!load_shader_module(R"(D:\projekty\Viking\Shaders\default_lit.frag.spv)", &colorMeshShader)) {
         std::cout << "Error when building the colored mesh shader" << std::endl;
@@ -568,10 +573,38 @@ void ViEngine::init_pipelines()
 
     create_material(meshPipeline, meshPipLayout, "defaultmesh");
 
+    //create pipeline layout for the textured mesh, which has 3 descriptor sets
+    //we start from the normal mesh layout
+    VkPipelineLayoutCreateInfo textured_pipeline_layout_info = mesh_pipeline_layout_info;
+
+    VkDescriptorSetLayout texturedSetLayouts[] = { _globalSetLayout, _objectSetLayout,_singleTextureSetLayout };
+
+    textured_pipeline_layout_info.setLayoutCount = 3;
+    textured_pipeline_layout_info.pSetLayouts = texturedSetLayouts;
+
+    VkPipelineLayout texturedPipeLayout;
+    VK_CHECK(vkCreatePipelineLayout(_device, &textured_pipeline_layout_info, nullptr, &texturedPipeLayout));
+
+    pipelineBuilder._shaderStages.clear();
+    pipelineBuilder._shaderStages.push_back(
+            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, meshVertShader));
+
+    pipelineBuilder._shaderStages.push_back(
+            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, texturedMeshShader));
+
+    //connect the new pipeline layout to the pipeline builder
+    pipelineBuilder._pipelineLayout = texturedPipeLayout;
+    VkPipeline texPipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
+    create_material(texPipeline, texturedPipeLayout, "texturedmesh");
+
+    create_material(meshPipeline, texturedPipeLayout, "defaultmesh");
+
     vkDestroyShaderModule(_device, meshVertShader, nullptr);
     vkDestroyShaderModule(_device, colorMeshShader, nullptr);
+    vkDestroyShaderModule(_device, texturedMeshShader, nullptr);
 
     _mainDeletionQueue.push_function([=, this]() {
+        vkDestroyPipeline(_device, texPipeline, nullptr);
         vkDestroyPipeline(_device, meshPipeline, nullptr);
         vkDestroyPipelineLayout(_device, meshPipLayout, nullptr);
     });
@@ -679,6 +712,14 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass)
 
 void ViEngine::load_meshes()
 {
+    //other meshes
+    Mesh lostEmpire{};
+    lostEmpire.load_from_obj(R"(D:\projekty\Viking\Assets\lost_empire.obj)");
+
+    upload_mesh(lostEmpire);
+
+    _meshes["empire"] = lostEmpire;
+
     Mesh triMesh{};
     triMesh.vertices.resize(3);
 
@@ -851,6 +892,9 @@ void ViEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int count)
 
         //only bind the pipeline if it doesn't match with the already bound one
         if (object.material != lastMaterial) {
+            //texture descriptor
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipelineLayout, 2, 1, &object.material->textureSet, 0, nullptr);
+
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipeline);
             lastMaterial = object.material;
 
@@ -890,6 +934,34 @@ void ViEngine::init_scene()
     monkey.material = get_material("defaultmesh");
     monkey.transformMatrix = glm::mat4{ 1.0f };
 
+    //Create a sampler for the texture
+    VkSamplerCreateInfo samplerInfo = vkinit::sampler_create_info(VK_FILTER_NEAREST);
+
+    VkSampler blockySampler;
+    vkCreateSampler(_device, &samplerInfo, nullptr, &blockySampler);
+
+    Material* texturedMat =	get_material("texturedmesh");
+
+    //Allocate the descriptor set for single-texture to use on the material
+    VkDescriptorSetAllocateInfo allocInfo = {};
+    allocInfo.pNext = nullptr;
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = _descriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &_singleTextureSetLayout;
+
+    vkAllocateDescriptorSets(_device, &allocInfo, &texturedMat->textureSet);
+
+    //Write to the descriptor set so that it points to our empire_diffuse texture
+    VkDescriptorImageInfo imageBufferInfo;
+    imageBufferInfo.sampler = blockySampler;
+    imageBufferInfo.imageView = _loadedTextures["empire_diffuse"].imageView;
+    imageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkWriteDescriptorSet texture1 = vkinit::write_descriptor_image(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, texturedMat->textureSet, &imageBufferInfo, 0);
+
+    vkUpdateDescriptorSets(_device, 1, &texture1, 0, nullptr);
+
     _renderables.push_back(monkey);
 
     for (int x = -20; x <= 20; x++) {
@@ -905,6 +977,13 @@ void ViEngine::init_scene()
             _renderables.push_back(tri);
         }
     }
+
+    RenderObject map;
+    map.mesh = get_mesh("empire");
+    map.material = get_material("texturedmesh");
+    map.transformMatrix = glm::translate(glm::vec3{ 5,-10,0 });
+
+    _renderables.push_back(map);
 }
 
 AllocatedBuffer ViEngine::create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
@@ -946,11 +1025,13 @@ size_t ViEngine::pad_uniform_buffer_size(size_t originalSize)
 
 void ViEngine::init_descriptors()
 {
-    //create a descriptor pool that will hold 10 uniform buffers
+    //Create a descriptor pool that will hold 10 uniform buffers
     std::vector<VkDescriptorPoolSize> sizes = {
             { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10 },
             { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10 },
-            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10 }
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10 },
+            //Add combined-image-sampler descriptor types to the pool
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10 }
     };
 
     VkDescriptorPoolCreateInfo pool_info = {};
@@ -1037,6 +1118,18 @@ void ViEngine::init_descriptors()
 
         vkUpdateDescriptorSets(_device, 3, setWrites, 0, nullptr);
     }
+
+    //another set, one that holds a single texture
+    VkDescriptorSetLayoutBinding textureBind = vkinit::descriptorset_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0);
+
+    VkDescriptorSetLayoutCreateInfo set3info = {};
+    set3info.bindingCount = 1;
+    set3info.flags = 0;
+    set3info.pNext = nullptr;
+    set3info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    set3info.pBindings = &textureBind;
+
+    vkCreateDescriptorSetLayout(_device, &set3info, nullptr, &_singleTextureSetLayout);
 
     _mainDeletionQueue.push_function([&]() {
         vmaDestroyBuffer(_allocator, _sceneParameterBuffer.m_buffer, _sceneParameterBuffer.m_allocation);
