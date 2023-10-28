@@ -84,7 +84,7 @@ void ViEngine::draw()
     VK_CHECK(vkResetCommandBuffer(m_mainCommandBuffer, 0));
 
     //request image from the swapchain
-    uint32_t swapchainImageIndex;
+    uint32_t swapchainImageIndex{};
     VK_CHECK(vkAcquireNextImageKHR(m_device, m_swapchain, 1000000000, m_presentSemaphore, nullptr, &swapchainImageIndex));
 
     //naming it cmd for shorter writing
@@ -97,7 +97,7 @@ void ViEngine::draw()
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
     //Make a clear-color from frame number. This will flash with a 120-frame period.
-    VkClearValue clearValue;
+    VkClearValue clearValue{};
     auto flash = abs(sin(static_cast<float>(m_frameNumber) / 120.f));
     clearValue.color = { { 0.0f, 0.0f, flash, 1.0f } };
 
@@ -250,7 +250,7 @@ void ViEngine::initVulkan()
 {
     vkb::InstanceBuilder builder;
     //make the Vulkan instance, with basic debug features
-    auto inst_ret = builder.set_app_name("ViEngine")
+    auto inst_ret = builder.set_app_name("Vi Engine")
         .request_validation_layers(true)
         .require_api_version(1, 1, 0)
         .use_default_debug_messenger()
@@ -396,10 +396,10 @@ void ViEngine::initFramebuffers()
     // Create the framebuffers for the swapchain images. This will connect the render-pass to the images for rendering
     auto fbInfo = vkinit::framebufferCreateInfo(m_renderPass, m_windowExtent);
 
-    const auto swapchainImagecount = m_swapchainImages.size();
-    m_framebuffers = std::vector<VkFramebuffer>(swapchainImagecount);
+    const auto swapchainImageCount = m_swapchainImages.size();
+    m_framebuffers = std::vector<VkFramebuffer>(swapchainImageCount);
 
-    for (int i = 0; i < swapchainImagecount; i++) {
+    for (int i = 0; i < swapchainImageCount; i++) {
 
         VkImageView attachments[2];
         attachments[0] = m_swapchainImageViews[i];
@@ -459,7 +459,7 @@ void ViEngine::initPipelines()
     pipelineBuilder.m_shaderStages.emplace_back(vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, colorMeshShader));
 
     //we start from just the default empty pipeline layout info
-    VkPipelineLayoutCreateInfo mesh_pipeline_layout_info = vkinit::pipelineLayoutCreateInfo();
+    auto mesh_pipeline_layout_info = vkinit::pipelineLayoutCreateInfo();
 
     //setup push constants
     VkPushConstantRange push_constant;
@@ -545,7 +545,7 @@ bool ViEngine::loadShaderModule(const char* t_filePath, VkShaderModule* t_outSha
 
     // Find what the size of the file is by looking up the location of the cursor
     //because the cursor is at the end, it gives the size directly in bytes
-    size_t fileSize = (size_t)file.tellg();
+    auto fileSize = static_cast<size_t>(file.tellg());
 
     // Spirv expects the buffer to be on uint32, so make sure to reserve an int vector big enough for the entire file
     std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
@@ -573,6 +573,7 @@ bool ViEngine::loadShaderModule(const char* t_filePath, VkShaderModule* t_outSha
     if (vkCreateShaderModule(m_device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
         return false;
     }
+
     *t_outShaderModule = shaderModule;
     return true;
 }
@@ -645,8 +646,7 @@ Material* ViEngine::createMaterial(VkPipeline pipeline, VkPipelineLayout layout,
 
 Material* ViEngine::getMaterial(const std::string &name) {
     //Search for the object, and return nullptr if not found
-    auto it = m_materials.find(name);
-    if (it == m_materials.end()) {
+    if (auto it = m_materials.find(name); it == m_materials.end()) {
         return nullptr;
     }
     else {
@@ -655,8 +655,7 @@ Material* ViEngine::getMaterial(const std::string &name) {
 }
 
 Mesh* ViEngine::getMesh(const std::string &name) {
-    auto it = m_meshes.find(name);
-    if (it == m_meshes.end()) {
+    if (auto it = m_meshes.find(name); it == m_meshes.end()) {
         return nullptr;
     }
     else {
@@ -676,17 +675,14 @@ void ViEngine::drawObjects(VkCommandBuffer cmd, RenderObject *first, int count) 
 
     Mesh* lastMesh = nullptr;
     Material* lastMaterial = nullptr;
-    for (int i = 0; i < count; i++)
-    {
+    for (int i = 0; i < count; i++) {
         auto& object = first[i];
 
         //only bind the pipeline if it doesn't match with the already bound one
         if (object.material != lastMaterial) {
-
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipeline);
             lastMaterial = object.material;
         }
-
 
         auto model = object.transformMatrix;
         //final render matrix, that we are calculating on the cpu
@@ -705,12 +701,14 @@ void ViEngine::drawObjects(VkCommandBuffer cmd, RenderObject *first, int count) 
             vkCmdBindVertexBuffers(cmd, 0, 1, &object.mesh->m_vertexBuffer.m_buffer, &offset);
             lastMesh = object.mesh;
         }
+
         //we can now draw
         vkCmdDraw(cmd, object.mesh->m_vertices.size(), 1, 0, 0);
     }
 }
 
-void ViEngine::initScene() {
+void ViEngine::initScene()
+{
     RenderObject monkey = {};
     monkey.mesh = getMesh("monkey");
     monkey.material = getMaterial("defaultmesh");
@@ -779,8 +777,7 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice t_device, VkRenderPass t_pass
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
     //it's easy to error out on create graphics pipeline, so we handle it a bit better than the common VK_CHECK case
-    VkPipeline newPipeline;
-    if (vkCreateGraphicsPipelines(t_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline) != VK_SUCCESS) {
+    if (VkPipeline newPipeline; vkCreateGraphicsPipelines(t_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline) != VK_SUCCESS) {
         std::cout << "failed to create pipeline\n";
         return VK_NULL_HANDLE; // failed to create a graphics pipeline
     }
