@@ -11,10 +11,10 @@
 
 struct VertexInputDescription
 {
-    std::vector<VkVertexInputBindingDescription> m_bindings;
-    std::vector<VkVertexInputAttributeDescription> m_attributes;
+    std::vector<VkVertexInputBindingDescription> bindings;
+    std::vector<VkVertexInputAttributeDescription> attributes;
 
-    VkPipelineVertexInputStateCreateFlags m_flags{};
+    VkPipelineVertexInputStateCreateFlags flags = 0;
 };
 
 struct Vertex
@@ -23,15 +23,15 @@ struct Vertex
     glm::vec3 normal;
     glm::vec3 color;
 
-    static VertexInputDescription getVertexDescription();
+    static VertexInputDescription get_vertex_description();
 };
 
 struct Mesh {
-    std::vector<Vertex> m_vertices;
+    std::vector<Vertex> vertices;
 
-    AllocatedBuffer m_vertexBuffer;
+    AllocatedBuffer vertexBuffer;
 
-    bool loadFromObj(const char* filename);
+    bool load_from_obj(const char* filename);
 };
 
 #endif //VIKING_VK_MESH_HPP

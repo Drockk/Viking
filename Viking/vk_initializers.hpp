@@ -4,26 +4,45 @@
 
 namespace vkinit
 {
-    VkCommandPoolCreateInfo commandPoolCreateInfo(uint32_t t_queueFamilyIndex, VkCommandPoolCreateFlags t_flags = 0);
-    VkCommandBufferAllocateInfo commandBufferAllocateInfo(VkCommandPool t_pool, uint32_t t_count = 1, VkCommandBufferLevel t_level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-    VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo(VkShaderStageFlagBits t_stage, VkShaderModule t_shaderModule);
-    VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo();
-    VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo(VkPrimitiveTopology t_topology);
-    VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo(VkPolygonMode t_polygonMode);
-    VkPipelineMultisampleStateCreateInfo multisamplingStateCreateInfo();
-    VkPipelineColorBlendAttachmentState colorBlendAttachmentState();
-    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
+    VkCommandPoolCreateInfo command_pool_create_info(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags = 0);
 
-    VkFenceCreateInfo fenceCreateInfo(VkFenceCreateFlags t_flags = 0);
-    VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags t_flags = 0);
+    VkCommandBufferAllocateInfo command_buffer_allocate_info(VkCommandPool pool, uint32_t count = 1, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-    VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
-    VkImageViewCreateInfo imageviewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags);
-    VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo(bool bDepthTest, bool bDepthWrite, VkCompareOp compareOp);
-    VkRenderPassBeginInfo renderpassBeginInfo(VkRenderPass renderPass, VkExtent2D windowExtent, VkFramebuffer framebuffer);
-    VkFramebufferCreateInfo framebufferCreateInfo(VkRenderPass renderPass, VkExtent2D extent);
+    VkCommandBufferBeginInfo command_buffer_begin_info(VkCommandBufferUsageFlags flags = 0);
 
-    VkSubmitInfo submitInfo(VkCommandBuffer* cmd);
-    VkPresentInfoKHR presentInfo();
-    VkCommandBufferBeginInfo commandBufferBeginInfo(VkCommandBufferUsageFlags flags);
+    VkFramebufferCreateInfo framebuffer_create_info(VkRenderPass renderPass, VkExtent2D extent);
+
+    VkFenceCreateInfo fence_create_info(VkFenceCreateFlags flags = 0);
+
+    VkSemaphoreCreateInfo semaphore_create_info(VkSemaphoreCreateFlags flags = 0);
+
+    VkSubmitInfo submit_info(VkCommandBuffer* cmd);
+
+    VkPresentInfoKHR present_info();
+
+    VkRenderPassBeginInfo renderpass_begin_info(VkRenderPass renderPass, VkExtent2D windowExtent, VkFramebuffer framebuffer);
+
+    VkPipelineShaderStageCreateInfo pipeline_shader_stage_create_info(VkShaderStageFlagBits stage, VkShaderModule shaderModule);
+
+    VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info();
+
+    VkPipelineInputAssemblyStateCreateInfo input_assembly_create_info(VkPrimitiveTopology topology);
+
+    VkPipelineRasterizationStateCreateInfo rasterization_state_create_info(VkPolygonMode polygonMode);
+
+    VkPipelineMultisampleStateCreateInfo multisampling_state_create_info();
+
+    VkPipelineColorBlendAttachmentState color_blend_attachment_state();
+
+    VkPipelineLayoutCreateInfo pipeline_layout_create_info();
+
+    VkImageCreateInfo image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
+
+    VkImageViewCreateInfo imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags);
+
+    VkPipelineDepthStencilStateCreateInfo depth_stencil_create_info(bool bDepthTest, bool bDepthWrite, VkCompareOp compareOp);
+
+    VkDescriptorSetLayoutBinding descriptorset_layout_binding(VkDescriptorType type, VkShaderStageFlags stageFlags, uint32_t binding);
+
+    VkWriteDescriptorSet write_descriptor_buffer(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorBufferInfo* bufferInfo, uint32_t binding);
 }

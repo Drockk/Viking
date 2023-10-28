@@ -1,3 +1,4 @@
+
 #include "vk_engine.hpp"
 #include "vk_initializers.hpp"
 #include "vk_types.hpp"
@@ -5,13 +6,18 @@
 #include <stdexcept>
 #include <iostream>
 #include <fstream>
-#include <filesystem>
 
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
 
 #include <glm/gtx/transform.hpp>
 
+#include <VkBootstrap.h>
+
+constexpr bool bUseValidationLayers{true};
+
+//We want to immediately abort when there is an error.
+// In normal engines, this would give an error message to the user, or perform a dump of state.
 #define VK_CHECK(x)                                                 \
     do                                                              \
     {                                                               \
@@ -25,67 +31,66 @@
 
 void ViEngine::init()
 {
-    m_window = std::make_unique<vi::Window>("Vi Engine", std::pair{m_windowExtent.width, m_windowExtent.height});
-    //load the core Vulkan structures
-    initVulkan();
-    initSwapchain();
-    initCommands();
-    initDefaultRenderpass();
-    initFramebuffers();
-    initSyncStructures();
-    initPipelines();
+    m_window = std::make_unique<vi::Window>("Vi Engine", std::pair{_windowExtent.width, _windowExtent.height});
 
-    loadMeshes();
+    init_vulkan();
+    init_swapchain();
+    init_default_renderpass();
+    init_framebuffers();
+    init_commands();
+    init_sync_structures();
+    init_descriptors();
+    init_pipelines();
 
-    initScene();
+    load_meshes();
 
-    m_isInitialized = true;
+    init_scene();
+
+    _isInitialized = true;
 }
-
 void ViEngine::cleanup()
 {
-    if (m_isInitialized) {
-        // Make sure the GPU has stopped doing its things
-        --m_frameNumber;
-        vkWaitForFences(m_device, 1, &getCurrentFrame().m_renderFence, true, 1000000000);
-        ++m_frameNumber;
+    if (_isInitialized) {
 
-        m_mainDeletionQueue.flush();
+        //Make sure the GPU has stopped doing its things
+        vkDeviceWaitIdle(_device);
 
-        vkDestroyDevice(m_device, nullptr);
-        vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
-        vkb::destroy_debug_utils_messenger(m_instance, m_debug_messenger);
-        vkDestroyInstance(m_instance, nullptr);
+        _mainDeletionQueue.flush();
+
+        vkDestroySurfaceKHR(_instance, _surface, nullptr);
+        vkDestroyDevice(_device, nullptr);
+        vkb::destroy_debug_utils_messenger(_instance, _debug_messenger);
+        vkDestroyInstance(_instance, nullptr);
     }
 }
 
 void ViEngine::draw()
 {
     //Wait until the gpu has finished rendering the last frame. Timeout of 1 second
-    auto renderFence = getCurrentFrame().m_renderFence;
-    VK_CHECK(vkWaitForFences(m_device, 1, &renderFence, true, 1000000000));
-    VK_CHECK(vkResetFences(m_device, 1, &renderFence));
+    VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true, 1000000000));
+    VK_CHECK(vkResetFences(_device, 1, &get_current_frame()._renderFence));
 
     //now that we are sure that the commands finished executing,
     // we can safely reset the command buffer to begin recording again.
-    auto commandBuffer = getCurrentFrame().m_mainCommandBuffer;
-    VK_CHECK(vkResetCommandBuffer(commandBuffer, 0));
+    VK_CHECK(vkResetCommandBuffer(get_current_frame()._mainCommandBuffer, 0));
 
     //request image from the swapchain
     uint32_t swapchainImageIndex{};
-    auto presentSemaphore = getCurrentFrame().m_presentSemaphore;
-    auto renderSemaphore = getCurrentFrame().m_renderSemaphore;
-    VK_CHECK(vkAcquireNextImageKHR(m_device, m_swapchain, 1000000000, presentSemaphore, nullptr, &swapchainImageIndex));
+    VK_CHECK(vkAcquireNextImageKHR(_device, _swapchain, 1000000000, get_current_frame()._presentSemaphore, nullptr, &swapchainImageIndex));
+
+    //Naming it cmd for shorter writing
+    auto cmd = get_current_frame()._mainCommandBuffer;
 
     //Begin the command buffer recording.
     // We will use this command buffer exactly once, so we want to let vulkan know that
-    auto cmdBeginInfo = vkinit::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    auto cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-    VK_CHECK(vkBeginCommandBuffer(commandBuffer, &cmdBeginInfo));
+    VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-    //Make a clear-color from frame number. This will flash with a 120-frame period.
-    VkClearValue clearValue{};
-    auto flash = abs(sin(static_cast<float>(m_frameNumber) / 120.f));
+    //Make a clear-color from frame number.
+    //This will flash with a 120-frame period.
+    VkClearValue clearValue;
+    auto flash = abs(sin(_frameNumber / 120.f));
     clearValue.color = { { 0.0f, 0.0f, flash, 1.0f } };
 
     //clear depth at 1
@@ -94,7 +99,7 @@ void ViEngine::draw()
 
     //Start the main renderpass.
     //We will use the clear color from above, and the framebuffer of the index the swapchain gave us
-    auto rpInfo = vkinit::renderpassBeginInfo(m_renderPass, m_windowExtent, m_framebuffers[swapchainImageIndex]);
+    auto rpInfo = vkinit::renderpass_begin_info(_renderPass, _windowExtent, _framebuffers[swapchainImageIndex]);
 
     //connect clear values
     rpInfo.clearValueCount = 2;
@@ -103,52 +108,52 @@ void ViEngine::draw()
 
     rpInfo.pClearValues = &clearValues[0];
 
-    vkCmdBeginRenderPass(commandBuffer, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    drawObjects(commandBuffer, m_renderables.data(), static_cast<int>(m_renderables.size()));
+    draw_objects(cmd, _renderables.data(), static_cast<int>(_renderables.size()));
 
     //finalize the render pass
-    vkCmdEndRenderPass(commandBuffer);
+    vkCmdEndRenderPass(cmd);
     //finalize the command buffer (we can no longer add commands, but it can now be executed)
-    VK_CHECK(vkEndCommandBuffer(commandBuffer));
+    VK_CHECK(vkEndCommandBuffer(cmd));
 
     //prepare the submission to the queue.
     //we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
     //we will signal the _renderSemaphore, to signal that rendering has finished
 
-    auto submit = vkinit::submitInfo(&commandBuffer);
+    auto submit = vkinit::submit_info(&cmd);
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     submit.pWaitDstStageMask = &waitStage;
 
     submit.waitSemaphoreCount = 1;
-    submit.pWaitSemaphores = &presentSemaphore;
+    submit.pWaitSemaphores = &get_current_frame()._presentSemaphore;
 
     submit.signalSemaphoreCount = 1;
-    submit.pSignalSemaphores = &renderSemaphore;
+    submit.pSignalSemaphores = &get_current_frame()._renderSemaphore;
 
     //submit command buffer to the queue and execute it.
     // _renderFence will now block until the graphic commands finish execution
-    VK_CHECK(vkQueueSubmit(m_graphicsQueue, 1, &submit, renderFence));
+    VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, get_current_frame()._renderFence));
 
     //prepare present
     // this will put the image we just rendered to into the visible window.
     // we want to wait on the _renderSemaphore for that,
     // as it's necessary that drawing commands have finished before the image is displayed to the user
-    auto presentInfo = vkinit::presentInfo();
+    VkPresentInfoKHR presentInfo = vkinit::present_info();
 
-    presentInfo.pSwapchains = &m_swapchain;
+    presentInfo.pSwapchains = &_swapchain;
     presentInfo.swapchainCount = 1;
 
-    presentInfo.pWaitSemaphores = &renderSemaphore;
+    presentInfo.pWaitSemaphores = &get_current_frame()._renderSemaphore;
     presentInfo.waitSemaphoreCount = 1;
 
     presentInfo.pImageIndices = &swapchainImageIndex;
 
-    VK_CHECK(vkQueuePresentKHR(m_graphicsQueue, &presentInfo));
+    VK_CHECK(vkQueuePresentKHR(_graphicsQueue, &presentInfo));
 
     //increase the number of frames drawn
-    m_frameNumber++;
+    _frameNumber++;
 }
 
 void ViEngine::run()
@@ -159,137 +164,137 @@ void ViEngine::run()
     }
 }
 
-void ViEngine::initCommands()
+FrameData& ViEngine::get_current_frame()
 {
-    //Create a command pool for commands submitted to the graphics queue.
-    //We also want the pool to allow for resetting of individual command buffers
-    auto commandPoolInfo = vkinit::commandPoolCreateInfo(m_graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    for (auto i{0}; i < FRAME_OVERLAP; ++i) {
-        VK_CHECK(vkCreateCommandPool(m_device, &commandPoolInfo, nullptr, &m_frames[i].m_commandPool));
-
-        //Allocate the default command buffer that we will use for rendering
-        auto commandAllocateInfo = vkinit::commandBufferAllocateInfo(m_frames[i].m_commandPool, 1);
-
-        VK_CHECK(vkAllocateCommandBuffers(m_device, &commandAllocateInfo, &m_frames[i].m_mainCommandBuffer));
-
-        m_mainDeletionQueue.push_function([=, this]() {
-            vkDestroyCommandPool(m_device, m_frames[i].m_commandPool, nullptr);
-        });
-    }
+    return _frames[_frameNumber % FRAME_OVERLAP];
 }
 
-void ViEngine::initSwapchain()
-{
-    vkb::SwapchainBuilder swapchainBuilder{m_chosenGPU, m_device, m_surface };
 
-    auto vkbSwapchain = swapchainBuilder
+FrameData& ViEngine::get_last_frame()
+{
+    return _frames[(_frameNumber -1) % 2];
+}
+
+void ViEngine::init_vulkan()
+{
+    vkb::InstanceBuilder builder;
+
+    //make the vulkan instance, with basic debug features
+    auto inst_ret = builder.set_app_name("Vi Engine")
+            .request_validation_layers(bUseValidationLayers)
+            .use_default_debug_messenger()
+            .require_api_version(1, 1, 0)
+            .build();
+
+    vkb::Instance vkb_inst = inst_ret.value();
+
+    //grab the instance
+    _instance = vkb_inst.instance;
+    _debug_messenger = vkb_inst.debug_messenger;
+
+    _surface = m_window->create_surface(_instance);
+
+    //Use vkbootstrap to select a gpu.
+    //We want a gpu that can write to the SDL surface and supports vulkan 1.2
+    vkb::PhysicalDeviceSelector selector{ vkb_inst };
+    vkb::PhysicalDevice physicalDevice = selector
+            .set_minimum_version(1, 1)
+            .set_surface(_surface)
+            .select()
+            .value();
+
+    // create the final vulkan device
+    vkb::DeviceBuilder deviceBuilder{ physicalDevice };
+    // enable shader draw parameters feature to use gl_BaseInstance
+    VkPhysicalDeviceShaderDrawParametersFeatures shader_draw_parameters_features = {};
+    shader_draw_parameters_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
+    shader_draw_parameters_features.pNext = nullptr;
+    shader_draw_parameters_features.shaderDrawParameters = VK_TRUE;
+    vkb::Device vkbDevice = deviceBuilder.add_pNext(&shader_draw_parameters_features).build().value();
+
+    // Get the VkDevice handle used in the rest of a vulkan application
+    _device = vkbDevice.device;
+    _chosenGPU = physicalDevice.physical_device;
+
+    // use vkbootstrap to get a Graphics queue
+    _graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
+
+    _graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+
+    //initialize the memory allocator
+    VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.physicalDevice = _chosenGPU;
+    allocatorInfo.device = _device;
+    allocatorInfo.instance = _instance;
+    vmaCreateAllocator(&allocatorInfo, &_allocator);
+
+    _mainDeletionQueue.push_function([&]() {
+        vmaDestroyAllocator(_allocator);
+    });
+
+    vkGetPhysicalDeviceProperties(_chosenGPU, &_gpuProperties);
+
+    std::cout << "The gpu has a minimum buffer alignement of " << _gpuProperties.limits.minUniformBufferOffsetAlignment << std::endl;
+
+}
+
+void ViEngine::init_swapchain()
+{
+    vkb::SwapchainBuilder swapchainBuilder{_chosenGPU,_device,_surface };
+
+    vkb::Swapchain vkbSwapchain = swapchainBuilder
             .use_default_format_selection()
                     //use vsync present mode
             .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-            .set_desired_extent(m_windowExtent.width, m_windowExtent.height)
+            .set_desired_extent(_windowExtent.width, _windowExtent.height)
             .build()
             .value();
 
     //store swapchain and its related images
-    m_swapchain = vkbSwapchain.swapchain;
-    m_swapchainImages = vkbSwapchain.get_images().value();
-    m_swapchainImageViews = vkbSwapchain.get_image_views().value();
+    _swapchain = vkbSwapchain.swapchain;
+    _swapchainImages = vkbSwapchain.get_images().value();
+    _swapchainImageViews = vkbSwapchain.get_image_views().value();
 
-    m_swapchainImageFormat = vkbSwapchain.image_format;
+    _swachainImageFormat = vkbSwapchain.image_format;
 
-    m_mainDeletionQueue.push_function([=, this]() {
-        vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
+    _mainDeletionQueue.push_function([=, this]() {
+        vkDestroySwapchainKHR(_device, _swapchain, nullptr);
     });
 
     //depth image size will match the window
     VkExtent3D depthImageExtent = {
-            m_windowExtent.width,
-            m_windowExtent.height,
+            _windowExtent.width,
+            _windowExtent.height,
             1
     };
 
-    //hard coding the depth format to 32-bit float
-    m_depthFormat = VK_FORMAT_D32_SFLOAT;
+    //Hard coding the depth format to 32-bit float
+    _depthFormat = VK_FORMAT_D32_SFLOAT;
 
     //the depth image will be an image with the format we selected and Depth Attachment usage flag
-    auto dimgInfo = vkinit::imageCreateInfo(m_depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, depthImageExtent);
+    auto dimg_info = vkinit::image_create_info(_depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, depthImageExtent);
 
     //for the depth image, we want to allocate it from gpu local memory
-    VmaAllocationCreateInfo dimgAllocinfo = {};
-    dimgAllocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    dimgAllocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    VmaAllocationCreateInfo dimg_allocinfo = {};
+    dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    dimg_allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     //allocate and create the image
-    vmaCreateImage(m_allocator, &dimgInfo, &dimgAllocinfo, &m_depthImage.m_image, &m_depthImage.m_allocation, nullptr);
+    vmaCreateImage(_allocator, &dimg_info, &dimg_allocinfo, &_depthImage.m_image, &_depthImage.m_allocation, nullptr);
 
     //build an image-view for the depth image to use for rendering
-    auto dviewInfo = vkinit::imageviewCreateInfo(m_depthFormat, m_depthImage.m_image, VK_IMAGE_ASPECT_DEPTH_BIT);
+    VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(_depthFormat, _depthImage.m_image, VK_IMAGE_ASPECT_DEPTH_BIT);;
 
-    VK_CHECK(vkCreateImageView(m_device, &dviewInfo, nullptr, &m_depthImageView));
+    VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depthImageView));
 
     //add to deletion queues
-    m_mainDeletionQueue.push_function([=, this]() {
-        vkDestroyImageView(m_device, m_depthImageView, nullptr);
-        vmaDestroyImage(m_allocator, m_depthImage.m_image, m_depthImage.m_allocation);
+    _mainDeletionQueue.push_function([=, this]() {
+        vkDestroyImageView(_device, _depthImageView, nullptr);
+        vmaDestroyImage(_allocator, _depthImage.m_image, _depthImage.m_allocation);
     });
 }
 
-void ViEngine::initVulkan()
-{
-    vkb::InstanceBuilder builder;
-    //make the Vulkan instance, with basic debug features
-    auto inst_ret = builder.set_app_name("Vi Engine")
-        .request_validation_layers(true)
-        .require_api_version(1, 1, 0)
-        .use_default_debug_messenger()
-        .build();
-
-    auto& vkb_inst = inst_ret.value();
-
-    //store the debug messenger
-    m_instance = vkb_inst.instance;
-
-    //store the debug messenger
-    m_debug_messenger = vkb_inst.debug_messenger;
-
-    // get the surface of the window we opened with glfw
-    m_surface = m_window->create_surface(m_instance);
-
-    //Use vkbootstrap to select a GPU.
-    //We want a GPU that can write to the SDL surface and supports Vulkan 1.1
-    vkb::PhysicalDeviceSelector selector{ vkb_inst };
-    auto physicalDevice = selector
-        .set_minimum_version(1, 1)
-        .set_surface(m_surface)
-        .select()
-        .value();
-
-    //create the final Vulkan device
-    vkb::DeviceBuilder deviceBuilder{ physicalDevice };
-
-    m_device2 = deviceBuilder.build().value();
-
-    // Get the VkDevice handle used in the rest of a Vulkan application
-    m_device = m_device2.device;
-    m_chosenGPU = physicalDevice.physical_device;
-
-    // use vkbootstrap to get a Graphics queue
-    m_graphicsQueue = m_device2.get_queue(vkb::QueueType::graphics).value();
-    m_graphicsQueueFamily = m_device2.get_queue_index(vkb::QueueType::graphics).value();
-
-    //Initialize the memory allocator
-    VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.physicalDevice = m_chosenGPU;
-    allocatorInfo.device = m_device;
-    allocatorInfo.instance = m_instance;
-    vmaCreateAllocator(&allocatorInfo, &m_allocator);
-
-    m_mainDeletionQueue.push_function([=, this]() {
-        vmaDestroyAllocator(m_allocator);
-    });
-}
-
-void ViEngine::initDefaultRenderpass()
+void ViEngine::init_default_renderpass()
 {
     //we define an attachment description for our main color image
     //the attachment is loaded as "clear" when renderpass start
@@ -297,43 +302,43 @@ void ViEngine::initDefaultRenderpass()
     //the attachment layout starts as "undefined", and transitions to "Present" so it's possible to display it
     //we don't care about stencil, and don't use multisampling
 
-    VkAttachmentDescription colorAttachment = {};
-    colorAttachment.format = m_swapchainImageFormat;
-    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    VkAttachmentDescription color_attachment = {};
+    color_attachment.format = _swachainImageFormat;
+    color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-    VkAttachmentReference colorAttachmentRef = {};
-    colorAttachmentRef.attachment = 0;
-    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    VkAttachmentReference color_attachment_ref = {};
+    color_attachment_ref.attachment = 0;
+    color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-    VkAttachmentDescription depthAttachment = {};
+    VkAttachmentDescription depth_attachment = {};
     // Depth attachment
-    depthAttachment.flags = 0;
-    depthAttachment.format = m_depthFormat;
-    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depth_attachment.flags = 0;
+    depth_attachment.format = _depthFormat;
+    depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depth_attachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-    VkAttachmentReference depthAttachmentRef = {};
-    depthAttachmentRef.attachment = 1;
-    depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    VkAttachmentReference depth_attachment_ref = {};
+    depth_attachment_ref.attachment = 1;
+    depth_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     //we are going to create 1 subpass, which is the minimum you can do
     VkSubpassDescription subpass = {};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &colorAttachmentRef;
+    subpass.pColorAttachments = &color_attachment_ref;
     //hook the depth attachment into the subpass
-    subpass.pDepthStencilAttachment = &depthAttachmentRef;
+    subpass.pDepthStencilAttachment = &depth_attachment_ref;
 
     //1 dependency, which is from "outside" into the subpass. And we can read or write color
     VkSubpassDependency dependency = {};
@@ -345,19 +350,19 @@ void ViEngine::initDefaultRenderpass()
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
     //dependency from outside to the subpass, making this subpass dependent on the previous renderpasses
-    VkSubpassDependency depthDependency = {};
-    depthDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    depthDependency.dstSubpass = 0;
-    depthDependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    depthDependency.srcAccessMask = 0;
-    depthDependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    VkSubpassDependency depth_dependency = {};
+    depth_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    depth_dependency.dstSubpass = 0;
+    depth_dependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    depth_dependency.srcAccessMask = 0;
+    depth_dependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    depth_dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
     //array of 2 dependencies, one for color, two for depth
-    VkSubpassDependency dependencies[2] = {dependency, depthDependency };
+    VkSubpassDependency dependencies[2] = { dependency, depth_dependency };
 
     //array of 2 attachments, one for the color, and the other for depth
-    VkAttachmentDescription attachments[2] = {colorAttachment, depthAttachment };
+    VkAttachmentDescription attachments[2] = { color_attachment,depth_attachment };
 
     VkRenderPassCreateInfo render_pass_info = {};
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -370,83 +375,109 @@ void ViEngine::initDefaultRenderpass()
     render_pass_info.dependencyCount = 2;
     render_pass_info.pDependencies = &dependencies[0];
 
-    VK_CHECK(vkCreateRenderPass(m_device, &render_pass_info, nullptr, &m_renderPass));
+    VK_CHECK(vkCreateRenderPass(_device, &render_pass_info, nullptr, &_renderPass));
 
-    m_mainDeletionQueue.push_function([=, this]() {
-        vkDestroyRenderPass(m_device, m_renderPass, nullptr);
+    _mainDeletionQueue.push_function([=, this]() {
+        vkDestroyRenderPass(_device, _renderPass, nullptr);
     });
 }
 
-void ViEngine::initFramebuffers()
+void ViEngine::init_framebuffers()
 {
-    // Create the framebuffers for the swapchain images. This will connect the render-pass to the images for rendering
-    auto fbInfo = vkinit::framebufferCreateInfo(m_renderPass, m_windowExtent);
+    //Create the framebuffers for the swapchain images. This will connect the render-pass to the images for rendering
+    auto fb_info = vkinit::framebuffer_create_info(_renderPass, _windowExtent);
 
-    const auto swapchainImageCount = m_swapchainImages.size();
-    m_framebuffers = std::vector<VkFramebuffer>(swapchainImageCount);
+    const auto swapchain_imagecount = _swapchainImages.size();
+    _framebuffers = std::vector<VkFramebuffer>(swapchain_imagecount);
 
-    for (int i = 0; i < swapchainImageCount; i++) {
+    for (int i = 0; i < swapchain_imagecount; i++) {
 
         VkImageView attachments[2];
-        attachments[0] = m_swapchainImageViews[i];
-        attachments[1] = m_depthImageView;
+        attachments[0] = _swapchainImageViews[i];
+        attachments[1] = _depthImageView;
 
-        fbInfo.pAttachments = attachments;
-        fbInfo.attachmentCount = 2;
-        VK_CHECK(vkCreateFramebuffer(m_device, &fbInfo, nullptr, &m_framebuffers[i]));
+        fb_info.pAttachments = attachments;
+        fb_info.attachmentCount = 2;
+        VK_CHECK(vkCreateFramebuffer(_device, &fb_info, nullptr, &_framebuffers[i]));
 
-        m_mainDeletionQueue.push_function([=, this]() {
-            vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
-            vkDestroyImageView(m_device, m_swapchainImageViews[i], nullptr);
+        _mainDeletionQueue.push_function([=, this]() {
+            vkDestroyFramebuffer(_device, _framebuffers[i], nullptr);
+            vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
         });
     }
 }
 
-void ViEngine::initSyncStructures()
+void ViEngine::init_commands()
 {
-    auto fenceCreateInfo = vkinit::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
-    auto semaphoreCreateInfo = vkinit::semaphoreCreateInfo();
+    //create a command pool for commands submitted to the graphics queue.
+    //we also want the pool to allow for resetting of individual command buffers
+    auto commandPoolInfo = vkinit::command_pool_create_info(_graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
-    for (int i{0}; i < FRAME_OVERLAP; ++i) {
-        VK_CHECK(vkCreateFence(m_device, &fenceCreateInfo, nullptr, &m_frames[i].m_renderFence));
+    for (int i = 0; i < FRAME_OVERLAP; ++i) {
+        VK_CHECK(vkCreateCommandPool(_device, &commandPoolInfo, nullptr, &_frames[i]._commandPool));
 
-        //Enqueue the destruction of the fence
-        m_mainDeletionQueue.push_function([=, this]() {
-            vkDestroyFence(m_device, m_frames[i].m_renderFence, nullptr);
+        //allocate the default command buffer that we will use for rendering
+        VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::command_buffer_allocate_info(_frames[i]._commandPool, 1);
+
+        VK_CHECK(vkAllocateCommandBuffers(_device, &cmdAllocInfo, &_frames[i]._mainCommandBuffer));
+
+        _mainDeletionQueue.push_function([=, this]() {
+            vkDestroyCommandPool(_device, _frames[i]._commandPool, nullptr);
+        });
+    }
+}
+
+void ViEngine::init_sync_structures()
+{
+    //Create syncronization structures
+    //one fence to control when the gpu has finished rendering the frame,
+    //and 2 semaphores to syncronize rendering with swapchain
+    //we want the fence to start signaled, so we can wait on it on the first frame
+    VkFenceCreateInfo fenceCreateInfo = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
+
+    VkSemaphoreCreateInfo semaphoreCreateInfo = vkinit::semaphore_create_info();
+
+    for (int i = 0; i < FRAME_OVERLAP; i++) {
+        VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &_frames[i]._renderFence));
+
+        //enqueue the destruction of the fence
+        _mainDeletionQueue.push_function([=]() {
+            vkDestroyFence(_device, _frames[i]._renderFence, nullptr);
         });
 
-        VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCreateInfo, nullptr, &m_frames[i].m_presentSemaphore));
-        VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCreateInfo, nullptr, &m_frames[i].m_renderSemaphore));
+        VK_CHECK(vkCreateSemaphore(_device, &semaphoreCreateInfo, nullptr, &_frames[i]._presentSemaphore));
+        VK_CHECK(vkCreateSemaphore(_device, &semaphoreCreateInfo, nullptr, &_frames[i]._renderSemaphore));
 
         //enqueue the destruction of semaphores
-        m_mainDeletionQueue.push_function([=, this]() {
-            vkDestroySemaphore(m_device, m_frames[i].m_presentSemaphore, nullptr);
-            vkDestroySemaphore(m_device, m_frames[i].m_renderSemaphore, nullptr);
+        _mainDeletionQueue.push_function([=, this]() {
+            vkDestroySemaphore(_device, _frames[i]._presentSemaphore, nullptr);
+            vkDestroySemaphore(_device, _frames[i]._renderSemaphore, nullptr);
         });
     }
 }
 
-void ViEngine::initPipelines()
+
+void ViEngine::init_pipelines()
 {
     VkShaderModule colorMeshShader;
-    if (!loadShaderModule(R"(D:\projekty\Viking\Shaders\triangle.frag.spv)", &colorMeshShader)) {
+    if (!load_shader_module(R"(D:\projekty\Viking\Shaders\default_lit.frag.spv)", &colorMeshShader)) {
         std::cout << "Error when building the colored mesh shader" << std::endl;
     }
 
     VkShaderModule meshVertShader;
-    if (!loadShaderModule(R"(D:\projekty\Viking\Shaders\tri_mesh.vert.spv)", &meshVertShader)) {
+    if (!load_shader_module(R"(D:\projekty\Viking\Shaders\tri_mesh_ssbo.vert.spv)", &meshVertShader)) {
         std::cout << "Error when building the mesh vertex shader module" << std::endl;
     }
 
     //Build the stage-create-info for both vertex and fragment stages.
-    // This lets the pipeline know the shader modules per stage
+    //This lets the pipeline know the shader modules per stage
     PipelineBuilder pipelineBuilder;
 
-    pipelineBuilder.m_shaderStages.emplace_back(vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, meshVertShader));
-    pipelineBuilder.m_shaderStages.emplace_back(vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, colorMeshShader));
+    pipelineBuilder._shaderStages.emplace_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, meshVertShader));
+    pipelineBuilder._shaderStages.emplace_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, colorMeshShader));
 
     //we start from just the default empty pipeline layout info
-    auto mesh_pipeline_layout_info = vkinit::pipelineLayoutCreateInfo();
+    auto mesh_pipeline_layout_info = vkinit::pipeline_layout_create_info();
 
     //setup push constants
     VkPushConstantRange push_constant;
@@ -460,180 +491,247 @@ void ViEngine::initPipelines()
     mesh_pipeline_layout_info.pPushConstantRanges = &push_constant;
     mesh_pipeline_layout_info.pushConstantRangeCount = 1;
 
-    VkPipelineLayout meshPipLayout;
+    VkDescriptorSetLayout setLayouts[] = { _globalSetLayout, _objectSetLayout };
 
-    VK_CHECK(vkCreatePipelineLayout(m_device, &mesh_pipeline_layout_info, nullptr, &meshPipLayout));
+    mesh_pipeline_layout_info.setLayoutCount = 2;
+    mesh_pipeline_layout_info.pSetLayouts = setLayouts;
+
+    VkPipelineLayout meshPipLayout;
+    VK_CHECK(vkCreatePipelineLayout(_device, &mesh_pipeline_layout_info, nullptr, &meshPipLayout));
 
     //hook the push constants layout
-    pipelineBuilder.m_pipelineLayout = meshPipLayout;
+    pipelineBuilder._pipelineLayout = meshPipLayout;
 
-    //Vertex input controls how to read vertices from vertex buffers. We aren't using it yet
-    pipelineBuilder.m_vertexInputInfo = vkinit::vertexInputStateCreateInfo();
+    //Vertex input controls how to read vertices from vertex buffers.
+    // We aren't using it yet
+    pipelineBuilder._vertexInputInfo = vkinit::vertex_input_state_create_info();
 
     //input assembly is the configuration for drawing triangle lists, strips, or individual points.
     //we are just going to draw a triangle list
-    pipelineBuilder.m_inputAssembly = vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    pipelineBuilder._inputAssembly = vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
     //build viewport and scissor from the swapchain extents
-    pipelineBuilder.m_viewport.x = 0.0f;
-    pipelineBuilder.m_viewport.y = 0.0f;
-    pipelineBuilder.m_viewport.width = (float)m_windowExtent.width;
-    pipelineBuilder.m_viewport.height = (float)m_windowExtent.height;
-    pipelineBuilder.m_viewport.minDepth = 0.0f;
-    pipelineBuilder.m_viewport.maxDepth = 1.0f;
+    pipelineBuilder._viewport.x = 0.0f;
+    pipelineBuilder._viewport.y = 0.0f;
+    pipelineBuilder._viewport.width = (float)_windowExtent.width;
+    pipelineBuilder._viewport.height = (float)_windowExtent.height;
+    pipelineBuilder._viewport.minDepth = 0.0f;
+    pipelineBuilder._viewport.maxDepth = 1.0f;
 
-    pipelineBuilder.m_scissor.offset = { 0, 0 };
-    pipelineBuilder.m_scissor.extent = m_windowExtent;
+    pipelineBuilder._scissor.offset = { 0, 0 };
+    pipelineBuilder._scissor.extent = _windowExtent;
 
     //configure the rasterizer to draw filled triangles
-    pipelineBuilder.m_rasterizer = vkinit::rasterizationStateCreateInfo(VK_POLYGON_MODE_FILL);
+    pipelineBuilder._rasterizer = vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL);
 
     //we don't use multisampling, so run the default one
-    pipelineBuilder.m_multisampling = vkinit::multisamplingStateCreateInfo();
+    pipelineBuilder._multisampling = vkinit::multisampling_state_create_info();
 
     //a single blend attachment with no blending and writing to RGBA
-    pipelineBuilder.m_colorBlendAttachment = vkinit::colorBlendAttachmentState();
+    pipelineBuilder._colorBlendAttachment = vkinit::color_blend_attachment_state();
+
 
     //default depthtesting
-    pipelineBuilder.m_depthStencil = vkinit::depthStencilCreateInfo(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
+    pipelineBuilder._depthStencil = vkinit::depth_stencil_create_info(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
 
     //build the mesh pipeline
-    auto vertexDescription = Vertex::getVertexDescription();
+    VertexInputDescription vertexDescription = Vertex::get_vertex_description();
 
     //connect the pipeline builder vertex input info to the one we get from Vertex
-    pipelineBuilder.m_vertexInputInfo.pVertexAttributeDescriptions = vertexDescription.m_attributes.data();
-    pipelineBuilder.m_vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexDescription.m_attributes.size());
+    pipelineBuilder._vertexInputInfo.pVertexAttributeDescriptions = vertexDescription.attributes.data();
+    pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount = vertexDescription.attributes.size();
 
-    pipelineBuilder.m_vertexInputInfo.pVertexBindingDescriptions = vertexDescription.m_bindings.data();
-    pipelineBuilder.m_vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexDescription.m_bindings.size());
+    pipelineBuilder._vertexInputInfo.pVertexBindingDescriptions = vertexDescription.bindings.data();
+    pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount = vertexDescription.bindings.size();
 
     //build the mesh triangle pipeline
-    auto meshPipeline = pipelineBuilder.buildPipeline(m_device, m_renderPass);
+    VkPipeline meshPipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
 
-    createMaterial(meshPipeline, meshPipLayout, "defaultmesh");
+    create_material(meshPipeline, meshPipLayout, "defaultmesh");
 
-    vkDestroyShaderModule(m_device, meshVertShader, nullptr);
-    vkDestroyShaderModule(m_device, colorMeshShader, nullptr);
+    vkDestroyShaderModule(_device, meshVertShader, nullptr);
+    vkDestroyShaderModule(_device, colorMeshShader, nullptr);
 
-    m_mainDeletionQueue.push_function([=, this]() {
-        vkDestroyPipeline(m_device, meshPipeline, nullptr);
-        vkDestroyPipelineLayout(m_device, meshPipLayout, nullptr);
+    _mainDeletionQueue.push_function([=, this]() {
+        vkDestroyPipeline(_device, meshPipeline, nullptr);
+        vkDestroyPipelineLayout(_device, meshPipLayout, nullptr);
     });
 }
 
-bool ViEngine::loadShaderModule(const char* t_filePath, VkShaderModule* t_outShaderModule) const
+bool ViEngine::load_shader_module(const char* filePath, VkShaderModule* outShaderModule)
 {
-    // Open the file. With cursor at the end
-    std::ifstream file(t_filePath, std::ios::ate | std::ios::binary);
+    //Open the file. With cursor at the end
+    std::ifstream file(filePath, std::ios::ate | std::ios::binary);
 
     if (!file.is_open()) {
         return false;
     }
 
-    // Find what the size of the file is by looking up the location of the cursor
+    //Find what the size of the file is by looking up the location of the cursor
     //because the cursor is at the end, it gives the size directly in bytes
-    auto fileSize = static_cast<size_t>(file.tellg());
+    size_t fileSize = (size_t)file.tellg();
 
-    // Spirv expects the buffer to be on uint32, so make sure to reserve an int vector big enough for the entire file
+    //Spirv expects the buffer to be on uint32, so make sure to reserve a int vector big enough for the entire file
     std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
 
-    // Put file cursor at the beginning
+    //Put file cursor at the beginning
     file.seekg(0);
 
-    // Load the entire file into the buffer
+    //Load the entire file into the buffer
     file.read((char*)buffer.data(), static_cast<std::streamsize>(fileSize));
 
-    // Now that the file is loaded into the buffer, we can close it
+    //Now that the file is loaded into the buffer, we can close it
     file.close();
 
-    // Create a new shader module, using the buffer we loaded
+    //Create a new shader module, using the buffer we loaded
     VkShaderModuleCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.pNext = nullptr;
 
-    // CodeSize has to be in bytes, so multiply the ints in the buffer by size of int to know the real size of the buffer
+    //CodeSize has to be in bytes, so multiply the ints in the buffer by size of int to know the real size of the buffer
     createInfo.codeSize = buffer.size() * sizeof(uint32_t);
     createInfo.pCode = buffer.data();
 
-    // Check that the creation goes well.
+    //Check that the creation goes well.
     VkShaderModule shaderModule;
-    if (vkCreateShaderModule(m_device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+    if (vkCreateShaderModule(_device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
         return false;
     }
 
-    *t_outShaderModule = shaderModule;
+    *outShaderModule = shaderModule;
     return true;
 }
 
-void ViEngine::loadMeshes()
+VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass)
 {
-    m_triangleMesh.m_vertices.resize(3);
+    //make viewport state from our stored viewport and scissor.
+    //at the moment, we won't support multiple viewports or scissors
+    VkPipelineViewportStateCreateInfo viewportState = {};
+    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.pNext = nullptr;
 
-    m_triangleMesh.m_vertices[0].position = { 1.f, 1.f, 0.5f };
-    m_triangleMesh.m_vertices[1].position = {-1.f, 1.f, 0.5f };
-    m_triangleMesh.m_vertices[2].position = { 0.f,-1.f, 0.5f };
+    viewportState.viewportCount = 1;
+    viewportState.pViewports = &_viewport;
+    viewportState.scissorCount = 1;
+    viewportState.pScissors = &_scissor;
 
-    m_triangleMesh.m_vertices[0].color = { 0.f, 1.f, 0.0f }; //pure green
-    m_triangleMesh.m_vertices[1].color = { 0.f, 1.f, 0.0f }; //pure green
-    m_triangleMesh.m_vertices[2].color = { 0.f, 1.f, 0.0f }; //pure green
+    //Setup dummy color blending.
+    // We aren't using transparent objects, yet
+    //the blending is just "no blend", but we do write to the color attachment
+    VkPipelineColorBlendStateCreateInfo colorBlending = {};
+    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.pNext = nullptr;
 
+    colorBlending.logicOpEnable = VK_FALSE;
+    colorBlending.logicOp = VK_LOGIC_OP_COPY;
+    colorBlending.attachmentCount = 1;
+    colorBlending.pAttachments = &_colorBlendAttachment;
 
-    m_monkeyMesh.loadFromObj(R"(D:\projekty\Viking\Assets\monkey_smooth.obj)");
+    //build the actual pipeline
+    //we now use all the info structs we have been writing into into this one to create the pipeline
+    VkGraphicsPipelineCreateInfo pipelineInfo = {};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.pNext = nullptr;
 
-    uploadMesh(m_triangleMesh);
-    uploadMesh(m_monkeyMesh);
+    pipelineInfo.stageCount = _shaderStages.size();
+    pipelineInfo.pStages = _shaderStages.data();
+    pipelineInfo.pVertexInputState = &_vertexInputInfo;
+    pipelineInfo.pInputAssemblyState = &_inputAssembly;
+    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &_rasterizer;
+    pipelineInfo.pMultisampleState = &_multisampling;
+    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.pDepthStencilState = &_depthStencil;
+    pipelineInfo.layout = _pipelineLayout;
+    pipelineInfo.renderPass = pass;
+    pipelineInfo.subpass = 0;
+    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-    //Note that we are copying them.
-    // Eventually we will delete the hardcoded m_monkey and m_triangle meshes, so it's no problem now.
-    m_meshes["monkey"] = m_monkeyMesh;
-    m_meshes["triangle"] = m_triangleMesh;
+    //it's easy to error out on create graphics pipeline, so we handle it a bit better than the common VK_CHECK case
+    VkPipeline newPipeline;
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline) != VK_SUCCESS) {
+        std::cout << "failed to create pipeline\n";
+        return VK_NULL_HANDLE; // failed to create a graphics pipeline
+    }
+    else {
+        return newPipeline;
+    }
 }
 
-void ViEngine::uploadMesh(Mesh &t_mesh)
+void ViEngine::load_meshes()
 {
-    // Allocate vertex buffer
+    Mesh triMesh{};
+    triMesh.vertices.resize(3);
+
+    triMesh.vertices[0].position = { 1.f,1.f, 0.0f };
+    triMesh.vertices[1].position = { -1.f,1.f, 0.0f };
+    triMesh.vertices[2].position = { 0.f,-1.f, 0.0f };
+
+    triMesh.vertices[0].color = { 0.f,1.f, 0.0f }; //pure green
+    triMesh.vertices[1].color = { 0.f,1.f, 0.0f }; //pure green
+    triMesh.vertices[2].color = { 0.f,1.f, 0.0f }; //pure green
+
+    //Load the monkey
+    Mesh monkeyMesh{};
+    monkeyMesh.load_from_obj(R"(D:\projekty\Viking\Assets\monkey_smooth.obj)");
+
+    upload_mesh(triMesh);
+    upload_mesh(monkeyMesh);
+
+    _meshes["monkey"] = monkeyMesh;
+    _meshes["triangle"] = triMesh;
+}
+
+void ViEngine::upload_mesh(Mesh& mesh)
+{
+    //Allocate vertex buffer
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    // This is the total size, in bytes, of the buffer we are allocating
-    bufferInfo.size = t_mesh.m_vertices.size() * sizeof(Vertex);
-    // This buffer is going to be used as a Vertex Buffer
+    bufferInfo.pNext = nullptr;
+    //This is the total size, in bytes, of the buffer we are allocating
+    bufferInfo.size = mesh.vertices.size() * sizeof(Vertex);
+    //This buffer is going to be used as a Vertex Buffer
     bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
 
-    // Let the VMA library know that this data should be writeable by CPU, but also readable by GPU
-    VmaAllocationCreateInfo vmaAllocInfo = {};
-    vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+    //Let the VMA library know that this data should be writeable by CPU, but also readable by GPU
+    VmaAllocationCreateInfo vmaallocInfo = {};
+    vmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
 
-    // Allocate the buffer
-    VK_CHECK(vmaCreateBuffer(m_allocator, &bufferInfo, &vmaAllocInfo,
-                             &t_mesh.m_vertexBuffer.m_buffer,
-                             &t_mesh.m_vertexBuffer.m_allocation,
+    //Allocate the buffer
+    VK_CHECK(vmaCreateBuffer(_allocator, &bufferInfo, &vmaallocInfo,
+                             &mesh.vertexBuffer.m_buffer,
+                             &mesh.vertexBuffer.m_allocation,
                              nullptr));
 
-    // Add the destruction of triangle mesh buffer to the deletion queue
-    m_mainDeletionQueue.push_function([=, this]() {
-        vmaDestroyBuffer(m_allocator, t_mesh.m_vertexBuffer.m_buffer, t_mesh.m_vertexBuffer.m_allocation);
+    //Add the destruction of triangle mesh buffer to the deletion queue
+    _mainDeletionQueue.push_function([=]() {
+
+        vmaDestroyBuffer(_allocator, mesh.vertexBuffer.m_buffer, mesh.vertexBuffer.m_allocation);
     });
 
+    //copy vertex data
     void* data;
-    vmaMapMemory(m_allocator, t_mesh.m_vertexBuffer.m_allocation, &data);
+    vmaMapMemory(_allocator, mesh.vertexBuffer.m_allocation, &data);
 
-    memcpy(data, t_mesh.m_vertices.data(), t_mesh.m_vertices.size() * sizeof(Vertex));
+    memcpy(data, mesh.vertices.data(), mesh.vertices.size() * sizeof(Vertex));
 
-    vmaUnmapMemory(m_allocator, t_mesh.m_vertexBuffer.m_allocation);
+    vmaUnmapMemory(_allocator, mesh.vertexBuffer.m_allocation);
 }
 
-Material* ViEngine::createMaterial(VkPipeline pipeline, VkPipelineLayout layout, const std::string &name) {
-    Material mat = {};
+Material* ViEngine::create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name)
+{
+    Material mat{};
     mat.pipeline = pipeline;
     mat.pipelineLayout = layout;
-    m_materials[name] = mat;
-    return &m_materials[name];
+    _materials[name] = mat;
+    return &_materials[name];
 }
 
-Material* ViEngine::getMaterial(const std::string &name) {
-    //Search for the object, and return nullptr if not found
-    if (auto it = m_materials.find(name); it == m_materials.end()) {
+Material* ViEngine::get_material(const std::string& name)
+{
+    //Search for the object, and return null-pointer if not found
+    if (auto it = _materials.find(name); it == _materials.end()) {
         return nullptr;
     }
     else {
@@ -641,8 +739,9 @@ Material* ViEngine::getMaterial(const std::string &name) {
     }
 }
 
-Mesh* ViEngine::getMesh(const std::string &name) {
-    if (auto it = m_meshes.find(name); it == m_meshes.end()) {
+Mesh* ViEngine::get_mesh(const std::string& name)
+{
+    if (auto it = _meshes.find(name); it == _meshes.end()) {
         return nullptr;
     }
     else {
@@ -650,7 +749,9 @@ Mesh* ViEngine::getMesh(const std::string &name) {
     }
 }
 
-void ViEngine::drawObjects(VkCommandBuffer cmd, RenderObject *first, int count) {
+
+void ViEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int count)
+{
     //make a model view matrix for rendering the object
     //camera view
     glm::vec3 camPos = { 0.f,-6.f,-10.f };
@@ -659,6 +760,46 @@ void ViEngine::drawObjects(VkCommandBuffer cmd, RenderObject *first, int count) 
     //camera projection
     auto projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
     projection[1][1] *= -1;
+
+    GPUCameraData camData;
+    camData.proj = projection;
+    camData.view = view;
+    camData.viewproj = projection * view;
+
+    void* data;
+    vmaMapMemory(_allocator, get_current_frame().cameraBuffer.m_allocation, &data);
+
+    memcpy(data, &camData, sizeof(GPUCameraData));
+
+    vmaUnmapMemory(_allocator, get_current_frame().cameraBuffer.m_allocation);
+
+    auto framed = (_frameNumber / 120.f);
+
+    _sceneParameters.ambientColor = { sin(framed),0,cos(framed),1 };
+
+    char* sceneData;
+    vmaMapMemory(_allocator, _sceneParameterBuffer.m_allocation , (void**)&sceneData);
+
+    auto frameIndex = _frameNumber % FRAME_OVERLAP;
+
+    sceneData += pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
+
+    memcpy(sceneData, &_sceneParameters, sizeof(GPUSceneData));
+
+    vmaUnmapMemory(_allocator, _sceneParameterBuffer.m_allocation);
+
+
+    void* objectData;
+    vmaMapMemory(_allocator, get_current_frame().objectBuffer.m_allocation, &objectData);
+
+    GPUObjectData* objectSSBO = (GPUObjectData*)objectData;
+
+    for (int i = 0; i < count; i++) {
+        RenderObject& object = first[i];
+        objectSSBO[i].modelMatrix = object.transformMatrix;
+    }
+
+    vmaUnmapMemory(_allocator, get_current_frame().objectBuffer.m_allocation);
 
     Mesh* lastMesh = nullptr;
     Material* lastMaterial = nullptr;
@@ -669,14 +810,20 @@ void ViEngine::drawObjects(VkCommandBuffer cmd, RenderObject *first, int count) 
         if (object.material != lastMaterial) {
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipeline);
             lastMaterial = object.material;
+
+            uint32_t  uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipelineLayout, 0, 1, &get_current_frame().globalDescriptor, 1, &uniform_offset);
+
+            //object data descriptor
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipelineLayout, 1, 1, &get_current_frame().objectDescriptor, 0, nullptr);
         }
 
         auto model = object.transformMatrix;
         //final render matrix, that we are calculating on the cpu
-        auto mesh_matrix = projection * view * model;
+        auto mesh_matrix = model;
 
-        MeshPushConstants constants = {};
-        constants.m_rendererMatrix = mesh_matrix;
+        MeshPushConstants constants {};
+        constants.render_matrix = mesh_matrix;
 
         //upload the mesh to the gpu via pushconstants
         vkCmdPushConstants(cmd, object.material->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &constants);
@@ -685,94 +832,179 @@ void ViEngine::drawObjects(VkCommandBuffer cmd, RenderObject *first, int count) 
         if (object.mesh != lastMesh) {
             //bind the mesh vertex buffer with offset 0
             VkDeviceSize offset = 0;
-            vkCmdBindVertexBuffers(cmd, 0, 1, &object.mesh->m_vertexBuffer.m_buffer, &offset);
+            vkCmdBindVertexBuffers(cmd, 0, 1, &object.mesh->vertexBuffer.m_buffer, &offset);
             lastMesh = object.mesh;
         }
-
         //we can now draw
-        vkCmdDraw(cmd, object.mesh->m_vertices.size(), 1, 0, 0);
+        vkCmdDraw(cmd, object.mesh->vertices.size(), 1, 0, i);
     }
 }
 
-void ViEngine::initScene()
+void ViEngine::init_scene()
 {
-    RenderObject monkey = {};
-    monkey.mesh = getMesh("monkey");
-    monkey.material = getMaterial("defaultmesh");
+    RenderObject monkey;
+    monkey.mesh = get_mesh("monkey");
+    monkey.material = get_material("defaultmesh");
     monkey.transformMatrix = glm::mat4{ 1.0f };
 
-    m_renderables.push_back(monkey);
+    _renderables.push_back(monkey);
 
     for (int x = -20; x <= 20; x++) {
         for (int y = -20; y <= 20; y++) {
 
             RenderObject tri = {};
-            tri.mesh = getMesh("triangle");
-            tri.material = getMaterial("defaultmesh");
+            tri.mesh = get_mesh("triangle");
+            tri.material = get_material("defaultmesh");
             auto translation = glm::translate(glm::mat4{ 1.0 }, glm::vec3(x, 0, y));
             auto scale = glm::scale(glm::mat4{ 1.0 }, glm::vec3(0.2, 0.2, 0.2));
             tri.transformMatrix = translation * scale;
 
-            m_renderables.push_back(tri);
+            _renderables.push_back(tri);
         }
     }
 }
 
-FrameData& ViEngine::getCurrentFrame() {
-    return m_frames[m_frameNumber % FRAME_OVERLAP];
+AllocatedBuffer ViEngine::create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
+{
+    //allocate vertex buffer
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.pNext = nullptr;
+    bufferInfo.size = allocSize;
+    bufferInfo.usage = usage;
+
+    //let the VMA library know that this data should be writeable by CPU, but also readable by GPU
+    VmaAllocationCreateInfo vmaallocInfo = {};
+    vmaallocInfo.usage = memoryUsage;
+
+    AllocatedBuffer newBuffer;
+
+    //allocate the buffer
+    VK_CHECK(vmaCreateBuffer(_allocator, &bufferInfo, &vmaallocInfo,
+                             &newBuffer.m_buffer,
+                             &newBuffer.m_allocation,
+                             nullptr));
+
+    return newBuffer;
 }
 
-VkPipeline PipelineBuilder::buildPipeline(VkDevice t_device, VkRenderPass t_pass)
+size_t ViEngine::pad_uniform_buffer_size(size_t originalSize)
 {
-    //make viewport state from our stored viewport and scissor.
-    //at the moment, we won't support multiple viewports or scissors
-    VkPipelineViewportStateCreateInfo viewportState = {};
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.pNext = nullptr;
-
-    viewportState.viewportCount = 1;
-    viewportState.pViewports = &m_viewport;
-    viewportState.scissorCount = 1;
-    viewportState.pScissors = &m_scissor;
-
-    //Setup placeholder color blending.
-    // We aren't using transparent objects, yet
-    //the blending is just "no blend", but we do write to the color attachment
-    VkPipelineColorBlendStateCreateInfo colorBlending = {};
-    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.pNext = nullptr;
-
-    colorBlending.logicOpEnable = VK_FALSE;
-    colorBlending.logicOp = VK_LOGIC_OP_COPY;
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments = &m_colorBlendAttachment;
-
-    //build the actual pipeline
-    //we now use all the info structs we have been writing into this one to create the pipeline
-    VkGraphicsPipelineCreateInfo pipelineInfo = {};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.pNext = nullptr;
-
-    pipelineInfo.stageCount = static_cast<uint32_t>(m_shaderStages.size());
-    pipelineInfo.pStages = m_shaderStages.data();
-    pipelineInfo.pVertexInputState = &m_vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &m_inputAssembly;
-    pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pRasterizationState = &m_rasterizer;
-    pipelineInfo.pMultisampleState = &m_multisampling;
-    pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.pDepthStencilState = &m_depthStencil;
-    pipelineInfo.layout = m_pipelineLayout;
-    pipelineInfo.renderPass = t_pass;
-    pipelineInfo.subpass = 0;
-    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-
-    //it's easy to error out on create graphics pipeline, so we handle it a bit better than the common VK_CHECK case
-    if (VkPipeline newPipeline; vkCreateGraphicsPipelines(t_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline) != VK_SUCCESS) {
-        std::cout << "failed to create pipeline\n";
-        return VK_NULL_HANDLE; // failed to create a graphics pipeline
+    // Calculate the required alignment based on minimum device-offset alignment
+    size_t minUboAlignment = _gpuProperties.limits.minUniformBufferOffsetAlignment;
+    size_t alignedSize = originalSize;
+    if (minUboAlignment > 0) {
+        alignedSize = (alignedSize + minUboAlignment - 1) & ~(minUboAlignment - 1);
     }
-    else {
-        return newPipeline;
+
+    return alignedSize;
+}
+
+
+void ViEngine::init_descriptors()
+{
+    //create a descriptor pool that will hold 10 uniform buffers
+    std::vector<VkDescriptorPoolSize> sizes = {
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10 },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10 }
+    };
+
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = 0;
+    pool_info.maxSets = 10;
+    pool_info.poolSizeCount = (uint32_t)sizes.size();
+    pool_info.pPoolSizes = sizes.data();
+
+    vkCreateDescriptorPool(_device, &pool_info, nullptr, &_descriptorPool);
+
+    VkDescriptorSetLayoutBinding cameraBind = vkinit::descriptorset_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,VK_SHADER_STAGE_VERTEX_BIT,0);
+    VkDescriptorSetLayoutBinding sceneBind = vkinit::descriptorset_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 1);
+
+    VkDescriptorSetLayoutBinding bindings[] = { cameraBind,sceneBind };
+
+    VkDescriptorSetLayoutCreateInfo setinfo = {};
+    setinfo.bindingCount = 2;
+    setinfo.flags = 0;
+    setinfo.pNext = nullptr;
+    setinfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    setinfo.pBindings = bindings;
+
+    vkCreateDescriptorSetLayout(_device, &setinfo, nullptr, &_globalSetLayout);
+
+    VkDescriptorSetLayoutBinding objectBind = vkinit::descriptorset_layout_binding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
+
+    VkDescriptorSetLayoutCreateInfo set2info = {};
+    set2info.bindingCount = 1;
+    set2info.flags = 0;
+    set2info.pNext = nullptr;
+    set2info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    set2info.pBindings = &objectBind;
+
+    vkCreateDescriptorSetLayout(_device, &set2info, nullptr, &_objectSetLayout);
+
+    const size_t sceneParamBufferSize = FRAME_OVERLAP * pad_uniform_buffer_size(sizeof(GPUSceneData));
+
+    _sceneParameterBuffer = create_buffer(sceneParamBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+    for (int i = 0; i < FRAME_OVERLAP; i++) {
+        _frames[i].cameraBuffer = create_buffer(sizeof(GPUCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+        const int MAX_OBJECTS = 10000;
+        _frames[i].objectBuffer = create_buffer(sizeof(GPUObjectData) * MAX_OBJECTS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+        VkDescriptorSetAllocateInfo allocInfo = {};
+        allocInfo.pNext = nullptr;
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = _descriptorPool;
+        allocInfo.descriptorSetCount = 1;
+        allocInfo.pSetLayouts = &_globalSetLayout;
+
+        vkAllocateDescriptorSets(_device, &allocInfo, &_frames[i].globalDescriptor);
+
+        VkDescriptorSetAllocateInfo objectSetAlloc = {};
+        objectSetAlloc.pNext = nullptr;
+        objectSetAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        objectSetAlloc.descriptorPool = _descriptorPool;
+        objectSetAlloc.descriptorSetCount = 1;
+        objectSetAlloc.pSetLayouts = &_objectSetLayout;
+
+        vkAllocateDescriptorSets(_device, &objectSetAlloc, &_frames[i].objectDescriptor);
+
+        VkDescriptorBufferInfo cameraInfo;
+        cameraInfo.buffer = _frames[i].cameraBuffer.m_buffer;
+        cameraInfo.offset = 0;
+        cameraInfo.range = sizeof(GPUCameraData);
+
+        VkDescriptorBufferInfo sceneInfo;
+        sceneInfo.buffer = _sceneParameterBuffer.m_buffer;
+        sceneInfo.offset = 0;
+        sceneInfo.range = sizeof(GPUSceneData);
+
+        VkDescriptorBufferInfo objectBufferInfo;
+        objectBufferInfo.buffer = _frames[i].objectBuffer.m_buffer;
+        objectBufferInfo.offset = 0;
+        objectBufferInfo.range = sizeof(GPUObjectData) * MAX_OBJECTS;
+
+        VkWriteDescriptorSet cameraWrite = vkinit::write_descriptor_buffer(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, _frames[i].globalDescriptor,&cameraInfo,0);
+        VkWriteDescriptorSet sceneWrite = vkinit::write_descriptor_buffer(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, _frames[i].globalDescriptor, &sceneInfo, 1);
+        VkWriteDescriptorSet objectWrite = vkinit::write_descriptor_buffer(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, _frames[i].objectDescriptor, &objectBufferInfo, 0);
+        VkWriteDescriptorSet setWrites[] = { cameraWrite,sceneWrite,objectWrite };
+
+        vkUpdateDescriptorSets(_device, 3, setWrites, 0, nullptr);
     }
+
+    _mainDeletionQueue.push_function([&]() {
+        vmaDestroyBuffer(_allocator, _sceneParameterBuffer.m_buffer, _sceneParameterBuffer.m_allocation);
+        vkDestroyDescriptorSetLayout(_device, _objectSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(_device, _globalSetLayout, nullptr);
+
+        vkDestroyDescriptorPool(_device, _descriptorPool, nullptr);
+
+        for (int i = 0; i < FRAME_OVERLAP; i++) {
+            vmaDestroyBuffer(_allocator,_frames[i].cameraBuffer.m_buffer, _frames[i].cameraBuffer.m_allocation);
+            vmaDestroyBuffer(_allocator, _frames[i].objectBuffer.m_buffer, _frames[i].objectBuffer.m_allocation);
+        }
+    });
 }
