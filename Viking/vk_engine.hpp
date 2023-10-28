@@ -1,4 +1,6 @@
 #pragma once
+#include "Window.hpp"
+
 #include "vk_types.hpp"
 #include "vk_mesh.hpp"
 
@@ -7,6 +9,7 @@
 
 #include <deque>
 #include <functional>
+#include <memory>
 
 struct GLFWwindow;
 
@@ -82,7 +85,6 @@ public:
     int m_frameNumber{ 0 };
 
     VkExtent2D m_windowExtent{ 1600, 900 };
-    GLFWwindow* m_window{ nullptr };
 
     VkSwapchainKHR m_swapchain; // from other articles
 
@@ -163,4 +165,6 @@ private:
 
     //Loads a shader module from a spir-v file. Returns false if it errors
     bool loadShaderModule(const char* t_filePath, VkShaderModule* t_outShaderModule) const;
+
+    std::unique_ptr<vi::Window> m_window;
 };

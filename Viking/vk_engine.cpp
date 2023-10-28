@@ -27,19 +27,7 @@
 
 void ViEngine::init()
 {
-    if (!glfwInit()) {
-        throw std::runtime_error("Cannot initialize GLFW");
-    }
-
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    m_window = glfwCreateWindow(static_cast<int>(m_windowExtent.width), static_cast<int>(m_windowExtent.height), "Vi Engine", nullptr, nullptr);
-    if (!m_window) {
-        glfwTerminate();
-        throw std::runtime_error("Cannot create GLFW window");
-    }
-
-    glfwMakeContextCurrent(m_window);
-
+    m_window = std::make_unique<vi::Window>("Vi Engine", std::pair{1600, 900});
     //load the core Vulkan structures
     initVulkan();
     initSwapchain();
@@ -70,8 +58,6 @@ void ViEngine::cleanup()
         vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
         vkb::destroy_debug_utils_messenger(m_instance, m_debug_messenger);
         vkDestroyInstance(m_instance, nullptr);
-        glfwDestroyWindow(m_window);
-        glfwTerminate();
     }
 }
 
@@ -169,8 +155,8 @@ void ViEngine::draw()
 
 void ViEngine::run()
 {
-    while (!glfwWindowShouldClose(m_window)) {
-        glfwPollEvents();
+    while (!m_window->should_close()) {
+        m_window->on_update();
         draw();
     }
 }
@@ -269,9 +255,7 @@ void ViEngine::initVulkan()
     m_debug_messenger = vkb_inst.debug_messenger;
 
     // get the surface of the window we opened with glfw
-    if (glfwCreateWindowSurface(m_instance, m_window, nullptr, &m_surface)) {
-        throw std::runtime_error("Cannot create GLFW window surface");
-    }
+    m_surface = m_window->create_surface(m_instance);
 
     //Use vkbootstrap to select a GPU.
     //We want a GPU that can write to the SDL surface and supports Vulkan 1.1
