@@ -1,5 +1,5 @@
 #pragma once
-#include "Window.hpp"
+#include "Core/Window.hpp"
 
 #include "vk_types.hpp"
 #include "vk_mesh.hpp"
@@ -10,8 +10,6 @@
 #include <deque>
 #include <functional>
 #include <memory>
-
-struct GLFWwindow;
 
 struct FrameData {
     VkSemaphore m_presentSemaphore{};

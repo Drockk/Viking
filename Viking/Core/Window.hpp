@@ -9,7 +9,7 @@
 #include <utility>
 
 #include <vulkan/vulkan.hpp>
-#include <GLFW/glfw3.h>
+#include "GLFW/glfw3.h"
 
 namespace vi {
     class Window {

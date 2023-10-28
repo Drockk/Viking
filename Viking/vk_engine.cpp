@@ -2,8 +2,6 @@
 #include "vk_initializers.hpp"
 #include "vk_types.hpp"
 
-#include <GLFW/glfw3.h>
-
 #include <stdexcept>
 #include <iostream>
 #include <fstream>
@@ -27,7 +25,7 @@
 
 void ViEngine::init()
 {
-    m_window = std::make_unique<vi::Window>("Vi Engine", std::pair{1600, 900});
+    m_window = std::make_unique<vi::Window>("Vi Engine", std::pair{m_windowExtent.width, m_windowExtent.height});
     //load the core Vulkan structures
     initVulkan();
     initSwapchain();

@@ -9,8 +9,8 @@ find_package(Vulkan REQUIRED)
 
 add_executable(Viking   "main.cpp" "vk_engine.cpp" "vk_initializers.cpp"
         vk_mesh.cpp
-        Window.cpp
-        Window.hpp)
+        Core/Window.cpp
+        Core/Window.hpp)
 
 target_include_directories(Viking
 	PUBLIC
