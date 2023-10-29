@@ -2,7 +2,7 @@
 // Created by batzi on 28.10.2023.
 //
 #include "vk_textures.hpp"
-
+#include "Core/DeletionQueue.hpp"
 #include "vk_initializers.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -103,7 +103,7 @@ bool vkutil::load_image_from_file(ViEngine& engine, const char* file, AllocatedI
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toReadable);
     });
 
-    engine._mainDeletionQueue.push_function([=, &engine]() {
+    vi::DeletionQueue::push_function([=, &engine] {
         vmaDestroyImage(engine._allocator, newImage.m_image, newImage.m_allocation);
     });
 

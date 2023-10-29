@@ -8,7 +8,7 @@
 
 namespace vi {
     Window::Window(std::string_view t_title, std::pair<int32_t, int32_t> t_resolution) {
-        if (!glfwInit()) {
+        if (not glfwInit()) {
             throw std::runtime_error("Cannot initialize GLFW");
         }
 
@@ -16,7 +16,7 @@ namespace vi {
 
         auto [width, height] = t_resolution;
         m_window = glfwCreateWindow(width, height, std::string(t_title).c_str(), nullptr, nullptr);
-        if (!m_window) {
+        if (not m_window) {
             glfwTerminate();
             throw std::runtime_error("Cannot create GLFW window");
         }

@@ -20,7 +20,7 @@ namespace vi {
 
         VkSurfaceKHR create_surface(VkInstance t_instance);
 
-        void on_update();
+        static void on_update();
         bool should_close();
 
     private:
