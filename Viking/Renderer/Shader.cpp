@@ -3,6 +3,7 @@
 //
 
 #include "Shader.hpp"
+#include "Core/Log.hpp"
 
 #include <fstream>
 #include <stdexcept>
@@ -23,6 +24,7 @@ namespace vi
     void Shader::load_from_file(const std::filesystem::path& t_filename)
     {
         create_shader_module(load_from_binary_file(t_filename));
+        VI_CORE_TRACE("Loaded shader: {}", t_filename.string());
     }
 
     std::vector<uint32_t> Shader::load_from_binary_file(const std::filesystem::path& t_filename)

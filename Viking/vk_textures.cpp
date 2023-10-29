@@ -3,6 +3,7 @@
 //
 #include "vk_textures.hpp"
 #include "Core/DeletionQueue.hpp"
+#include "Core/Log.hpp"
 #include "vk_initializers.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -47,7 +48,7 @@ bool vkutil::load_image_from_file(ViEngine& engine, const char* file, AllocatedI
 
     VkImageCreateInfo dimg_info = vkinit::image_create_info(image_format, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, imageExtent);
 
-    AllocatedImage newImage;
+    AllocatedImage newImage{};
 
     VmaAllocationCreateInfo dimg_allocinfo = {};
     dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -109,7 +110,7 @@ bool vkutil::load_image_from_file(ViEngine& engine, const char* file, AllocatedI
 
     vmaDestroyBuffer(engine._allocator, stagingBuffer.m_buffer, stagingBuffer.m_allocation);
 
-    std::cout << "Texture loaded successfully " << file << std::endl;
+    VI_CORE_TRACE("Loaded texture: {}", file);
 
     outImage = newImage;
 

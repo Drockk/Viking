@@ -1,0 +1,48 @@
+//
+// Created by batzi on 29.10.2023.
+//
+
+#ifndef VIKING_LOG_HPP
+#define VIKING_LOG_HPP
+
+#pragma warning(push, 0)
+#include <spdlog/spdlog.h>
+#include <spdlog/fmt/ostr.h>
+#pragma warning(pop)
+
+namespace vi {
+    class Log {
+    public:
+        static void init();
+
+        static std::shared_ptr<spdlog::logger>& get_core_logger()
+        {
+            return s_core_logger;
+        }
+
+        static std::shared_ptr<spdlog::logger>& get_client_logger()
+        {
+            return s_client_logger;
+        }
+
+    private:
+        inline static std::shared_ptr<spdlog::logger> s_core_logger;
+        inline static std::shared_ptr<spdlog::logger> s_client_logger;
+    };
+} // vi
+
+// Core log macros
+#define VI_CORE_TRACE(...)    ::vi::Log::get_core_logger()->trace(__VA_ARGS__)
+#define VI_CORE_INFO(...)     ::vi::Log::get_core_logger()->info(__VA_ARGS__)
+#define VI_CORE_WARN(...)     ::vi::Log::get_core_logger()->warn(__VA_ARGS__)
+#define VI_CORE_ERROR(...)    ::vi::Log::get_core_logger()->error(__VA_ARGS__)
+#define VI_CORE_CRITICAL(...) ::vi::Log::get_core_logger()->critical(__VA_ARGS__)
+
+// Client log macros
+#define VI_TRACE(...)         ::vi::Log::get_client_logger()->trace(__VA_ARGS__)
+#define VI_INFO(...)          ::vi::Log::get_client_logger()->info(__VA_ARGS__)
+#define VI_WARN(...)          ::vi::Log::get_client_logger()->warn(__VA_ARGS__)
+#define VI_ERROR(...)         ::vi::Log::get_client_logger()->error(__VA_ARGS__)
+#define VI_CRITICAL(...)      ::vi::Log::get_client_logger()->critical(__VA_ARGS__)
+
+#endif //VIKING_LOG_HPP

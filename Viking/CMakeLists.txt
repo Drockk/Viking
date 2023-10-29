@@ -10,6 +10,8 @@ find_package(Vulkan REQUIRED)
 add_executable(Viking
         Core/DeletionQueue.cpp
         Core/DeletionQueue.hpp
+        Core/Log.cpp
+        Core/Log.hpp
         Core/Window.cpp
         Core/Window.hpp
         Renderer/Shader.cpp
@@ -21,6 +23,8 @@ add_executable(Viking
         vk_textures.hpp
         vk_textures.cpp)
 
+include_directories(.)
+
 target_include_directories(Viking
 	PUBLIC
         ${VULKAN_INCLUDE_DIRS}
@@ -30,6 +34,7 @@ target_include_directories(Viking
 
 CPMAddPackage("gh:charles-lunarg/vk-bootstrap#v0.7")
 CPMAddPackage("gh:fmtlib/fmt#10.1.1")
+CPMAddPackage("gh:gabime/spdlog@1.12.0")
 CPMAddPackage("gh:glfw/glfw#3.3.8")
 CPMAddPackage("gh:GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator#v3.0.1")
 CPMAddPackage("gh:g-truc/glm#0.9.9.8")
@@ -39,6 +44,7 @@ target_link_libraries(Viking
         glfw
         glm::glm
         fmt
+        spdlog
         vk-bootstrap::vk-bootstrap
         Vulkan::Vulkan
         VulkanMemoryAllocator

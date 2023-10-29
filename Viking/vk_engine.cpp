@@ -8,8 +8,9 @@
 
 #include "VkBootstrap.h"
 
+#include "Core/Log.hpp"
+
 #include <iostream>
-#include <fstream>
 
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
@@ -19,20 +20,20 @@ constexpr bool bUseValidationLayers = true;
 //We want to immediately abort when there is an error.
 // In normal engines, this would give an error message to the user, or perform a dump of state.
 using namespace std;
-#define VK_CHECK(x)                                                 \
-	do                                                              \
-	{                                                               \
-		VkResult err = x;                                           \
-		if (err)                                                    \
-		{                                                           \
-			std::cout <<"Detected Vulkan error: " << err << std::endl; \
-			abort();                                                \
-		}                                                           \
-	} while (0)
+#define VK_CHECK(x)                                                     \
+    do {                                                                \
+        VkResult err = x;                                               \
+        if (err) {                                                      \
+            std::cout <<"Detected Vulkan error: " << err << std::endl;  \
+            abort();                                                    \
+        }                                                               \
+    } while (0)
 
 
 void ViEngine::init()
 {
+    vi::Log::init();
+
     m_window = std::make_unique<vi::Window>("Vi Engine", std::pair{_windowExtent.width, _windowExtent.height});
 
     init_vulkan();
@@ -231,8 +232,7 @@ void ViEngine::init_vulkan()
 
     vkGetPhysicalDeviceProperties(_chosenGPU, &_gpuProperties);
 
-    std::cout << "The gpu has a minimum buffer alignement of " << _gpuProperties.limits.minUniformBufferOffsetAlignment << std::endl;
-
+    VI_CORE_TRACE("The gpu has a minimum buffer alignment of {}", _gpuProperties.limits.minUniformBufferOffsetAlignment);
 }
 
 void ViEngine::init_swapchain()
@@ -643,7 +643,7 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass)
     VkPipeline newPipeline;
     if (vkCreateGraphicsPipelines(
             device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline) != VK_SUCCESS) {
-        std::cout << "failed to create pipline\n";
+        VI_CORE_ERROR("Failed to create pipeline");
         return VK_NULL_HANDLE; // failed to create graphics pipeline
     }
     else

@@ -4,6 +4,8 @@
 
 #include "vk_mesh.hpp"
 
+#include "Core/Log.hpp"
+
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 #include <iostream>
@@ -72,12 +74,12 @@ bool Mesh::load_from_obj(const char* filename)
     tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, nullptr);
     //make sure to output the warnings to the console, in case there are issues with the file
     if (!warn.empty()) {
-        std::cout << "WARN: " << warn << std::endl;
+        VI_CORE_WARN(warn);
     }
     //If we have any error, print it to the console, and break the mesh loading.
     //This happens if the file can't be found or is malformed
     if (!err.empty()) {
-        std::cerr << err << std::endl;
+        VI_CORE_ERROR(err);
         return false;
     }
 
