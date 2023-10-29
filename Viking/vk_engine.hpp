@@ -28,24 +28,6 @@ public:
     VkPipeline build_pipeline(VkDevice device, VkRenderPass pass);
 };
 
-struct DeletionQueue
-{
-    std::deque<std::function<void()>> deletors;
-
-    void push_function(std::function<void()>&& function) {
-        deletors.push_back(function);
-    }
-
-    void flush() {
-        // reverse iterate the deletion queue to execute all the functions
-        for (auto it = deletors.rbegin(); it != deletors.rend(); it++) {
-            (*it)(); //call functors
-        }
-
-        deletors.clear();
-    }
-};
-
 struct MeshPushConstants {
     glm::vec4 data;
     glm::mat4 render_matrix;
@@ -70,8 +52,6 @@ struct FrameData {
     VkSemaphore _presentSemaphore;
     VkSemaphore _renderSemaphore;
     VkFence _renderFence;
-
-    DeletionQueue _frameDeletionQueue;
 
     VkCommandPool _commandPool;
     VkCommandBuffer _mainCommandBuffer;
@@ -120,7 +100,6 @@ class ViEngine
 public:
     bool _isInitialized{ false };
     int _frameNumber {0};
-    int _selectedShader{ 0 };
 
     VkExtent2D _windowExtent{ 1700 , 900 };
 
@@ -145,8 +124,6 @@ public:
     std::vector<VkFramebuffer> _framebuffers;
     std::vector<VkImage> _swapchainImages;
     std::vector<VkImageView> _swapchainImageViews;
-
-    DeletionQueue _mainDeletionQueue;
 
     VmaAllocator _allocator; //vma lib allocator
 
@@ -228,7 +205,6 @@ private:
 
     //loads a shader module from a spir-v file. Returns false if it errors
     void load_meshes();
-    bool load_shader_module(const char* filePath, VkShaderModule* outShaderModule);
 
     void upload_mesh(Mesh& mesh);
 

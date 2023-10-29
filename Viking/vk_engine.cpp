@@ -3,6 +3,9 @@
 #include "vk_textures.hpp"
 #include "vk_types.hpp"
 
+#include "Core/DeletionQueue.hpp"
+#include "Renderer/Shader.hpp"
+
 #include "VkBootstrap.h"
 
 #include <iostream>
@@ -53,7 +56,7 @@ void ViEngine::cleanup()
         //Make sure the gpu has stopped doing its things
         vkDeviceWaitIdle(_device);
 
-        _mainDeletionQueue.flush();
+        vi::DeletionQueue::flush();
 
         vkDestroySurfaceKHR(_instance, _surface, nullptr);
 
@@ -222,7 +225,7 @@ void ViEngine::init_vulkan()
     allocatorInfo.instance = _instance;
     vmaCreateAllocator(&allocatorInfo, &_allocator);
 
-    _mainDeletionQueue.push_function([&]() {
+    vi::DeletionQueue::push_function([&] {
         vmaDestroyAllocator(_allocator);
     });
 
@@ -251,7 +254,7 @@ void ViEngine::init_swapchain()
 
     _swachainImageFormat = vkbSwapchain.image_format;
 
-    _mainDeletionQueue.push_function([=]() {
+    vi::DeletionQueue::push_function([this] {
         vkDestroySwapchainKHR(_device, _swapchain, nullptr);
     });
 
@@ -281,8 +284,7 @@ void ViEngine::init_swapchain()
 
     VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depthImageView));
 
-    //add to deletion queues
-    _mainDeletionQueue.push_function([=]() {
+    vi::DeletionQueue::push_function([this] {
         vkDestroyImageView(_device, _depthImageView, nullptr);
         vmaDestroyImage(_allocator, _depthImage.m_image, _depthImage.m_allocation);
     });
@@ -371,7 +373,7 @@ void ViEngine::init_default_renderpass()
 
     VK_CHECK(vkCreateRenderPass(_device, &render_pass_info, nullptr, &_renderPass));
 
-    _mainDeletionQueue.push_function([=]() {
+    vi::DeletionQueue::push_function([this] {
         vkDestroyRenderPass(_device, _renderPass, nullptr);
     });
 }
@@ -394,7 +396,7 @@ void ViEngine::init_framebuffers()
         fb_info.attachmentCount = 2;
         VK_CHECK(vkCreateFramebuffer(_device, &fb_info, nullptr, &_framebuffers[i]));
 
-        _mainDeletionQueue.push_function([=]() {
+        vi::DeletionQueue::push_function([=, this] {
             vkDestroyFramebuffer(_device, _framebuffers[i], nullptr);
             vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
         });
@@ -418,7 +420,7 @@ void ViEngine::init_commands()
 
         VK_CHECK(vkAllocateCommandBuffers(_device, &cmdAllocInfo, &_frames[i]._mainCommandBuffer));
 
-        _mainDeletionQueue.push_function([=]() {
+        vi::DeletionQueue::push_function([=, this] {
             vkDestroyCommandPool(_device, _frames[i]._commandPool, nullptr);
         });
     }
@@ -428,7 +430,7 @@ void ViEngine::init_commands()
     //create pool for upload context
     VK_CHECK(vkCreateCommandPool(_device, &uploadCommandPoolInfo, nullptr, &_uploadContext._commandPool));
 
-    _mainDeletionQueue.push_function([=]() {
+    vi::DeletionQueue::push_function([this] {
         vkDestroyCommandPool(_device, _uploadContext._commandPool, nullptr);
     });
 
@@ -453,7 +455,7 @@ void ViEngine::init_sync_structures()
         VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &_frames[i]._renderFence));
 
         //enqueue the destruction of the fence
-        _mainDeletionQueue.push_function([=]() {
+        vi::DeletionQueue::push_function([=, this] {
             vkDestroyFence(_device, _frames[i]._renderFence, nullptr);
         });
 
@@ -462,7 +464,7 @@ void ViEngine::init_sync_structures()
         VK_CHECK(vkCreateSemaphore(_device, &semaphoreCreateInfo, nullptr, &_frames[i]._renderSemaphore));
 
         //enqueue the destruction of semaphores
-        _mainDeletionQueue.push_function([=]() {
+        vi::DeletionQueue::push_function([=, this] {
             vkDestroySemaphore(_device, _frames[i]._presentSemaphore, nullptr);
             vkDestroySemaphore(_device, _frames[i]._renderSemaphore, nullptr);
         });
@@ -472,42 +474,23 @@ void ViEngine::init_sync_structures()
     VkFenceCreateInfo uploadFenceCreateInfo = vkinit::fence_create_info();
 
     VK_CHECK(vkCreateFence(_device, &uploadFenceCreateInfo, nullptr, &_uploadContext._uploadFence));
-    _mainDeletionQueue.push_function([=]() {
+    vi::DeletionQueue::push_function([=, this] {
         vkDestroyFence(_device, _uploadContext._uploadFence, nullptr);
     });
 }
 
-
 void ViEngine::init_pipelines()
 {
-    VkShaderModule colorMeshShader;
-    if (!load_shader_module(R"(D:\projekty\Viking\Shaders\default_lit.frag.spv)", &colorMeshShader))
-    {
-        std::cout << "Error when building the colored mesh shader" << std::endl;
-    }
-
-    VkShaderModule texturedMeshShader;
-    if (!load_shader_module(R"(D:\projekty\Viking\Shaders\textured_lit.frag.spv)", &texturedMeshShader))
-    {
-        std::cout << "Error when building the colored mesh shader" << std::endl;
-    }
-
-    VkShaderModule meshVertShader;
-    if (!load_shader_module(R"(D:\projekty\Viking\Shaders\tri_mesh_ssbo.vert.spv)", &meshVertShader))
-    {
-        std::cout << "Error when building the mesh vertex shader module" << std::endl;
-    }
-
+    auto textured_mesh_frag_shader = std::make_unique<vi::Shader>(_device, R"(D:\projekty\Viking\Shaders\textured_lit.frag.spv)");
+    auto color_mesh_frag_shader = std::make_unique<vi::Shader>(_device, R"(D:\projekty\Viking\Shaders\default_lit.frag.spv)");
+    auto mesh_vert_shader = std::make_unique<vi::Shader>(_device, R"(D:\projekty\Viking\Shaders\tri_mesh_ssbo.vert.spv)");
 
     //build the stage-create-info for both vertex and fragment stages. This lets the pipeline know the shader modules per stage
     PipelineBuilder pipelineBuilder;
-
-    pipelineBuilder._shaderStages.push_back(
-            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, meshVertShader));
-
-    pipelineBuilder._shaderStages.push_back(
-            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, colorMeshShader));
-
+    pipelineBuilder._shaderStages.emplace_back(
+            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, mesh_vert_shader->get_shader_module()));
+    pipelineBuilder._shaderStages.emplace_back(
+            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, color_mesh_frag_shader->get_shader_module()));
 
     //we start from just the default empty pipeline layout info
     VkPipelineLayoutCreateInfo mesh_pipeline_layout_info = vkinit::pipeline_layout_create_info();
@@ -532,8 +515,7 @@ void ViEngine::init_pipelines()
     VkPipelineLayout meshPipLayout;
     VK_CHECK(vkCreatePipelineLayout(_device, &mesh_pipeline_layout_info, nullptr, &meshPipLayout));
 
-
-    //we start from  the normal mesh layout
+    //we start from the normal mesh layout
     VkPipelineLayoutCreateInfo textured_pipeline_layout_info = mesh_pipeline_layout_info;
 
     VkDescriptorSetLayout texturedSetLayouts[] = { _globalSetLayout, _objectSetLayout,_singleTextureSetLayout };
@@ -574,7 +556,6 @@ void ViEngine::init_pipelines()
     //a single blend attachment with no blending and writing to RGBA
     pipelineBuilder._colorBlendAttachment = vkinit::color_blend_attachment_state();
 
-
     //default depthtesting
     pipelineBuilder._depthStencil = vkinit::depth_stencil_create_info(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
 
@@ -589,79 +570,29 @@ void ViEngine::init_pipelines()
     pipelineBuilder._vertexInputInfo.pVertexBindingDescriptions = vertexDescription.bindings.data();
     pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount = vertexDescription.bindings.size();
 
-
     //build the mesh triangle pipeline
     VkPipeline meshPipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
 
     create_material(meshPipeline, meshPipLayout, "defaultmesh");
 
     pipelineBuilder._shaderStages.clear();
-    pipelineBuilder._shaderStages.push_back(
-            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, meshVertShader));
+    pipelineBuilder._shaderStages.emplace_back(
+            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, mesh_vert_shader->get_shader_module()));
 
-    pipelineBuilder._shaderStages.push_back(
-            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, texturedMeshShader));
+    pipelineBuilder._shaderStages.emplace_back(
+            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, textured_mesh_frag_shader->get_shader_module()));
 
     pipelineBuilder._pipelineLayout = texturedPipeLayout;
     VkPipeline texPipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
     create_material(texPipeline, texturedPipeLayout, "texturedmesh");
 
-
-    vkDestroyShaderModule(_device, meshVertShader, nullptr);
-    vkDestroyShaderModule(_device, colorMeshShader, nullptr);
-    vkDestroyShaderModule(_device, texturedMeshShader, nullptr);
-
-
-    _mainDeletionQueue.push_function([=]() {
+    vi::DeletionQueue::push_function([=, this] {
         vkDestroyPipeline(_device, meshPipeline, nullptr);
         vkDestroyPipeline(_device, texPipeline, nullptr);
 
         vkDestroyPipelineLayout(_device, meshPipLayout, nullptr);
         vkDestroyPipelineLayout(_device, texturedPipeLayout, nullptr);
     });
-}
-
-bool ViEngine::load_shader_module(const char* filePath, VkShaderModule* outShaderModule)
-{
-    //open the file. With cursor at the end
-    std::ifstream file(filePath, std::ios::ate | std::ios::binary);
-
-    if (!file.is_open()) {
-        return false;
-    }
-
-    //find what the size of the file is by looking up the location of the cursor
-    //because the cursor is at the end, it gives the size directly in bytes
-    size_t fileSize = (size_t)file.tellg();
-
-    //spirv expects the buffer to be on uint32, so make sure to reserve a int vector big enough for the entire file
-    std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
-
-    //put file cursor at beggining
-    file.seekg(0);
-
-    //load the entire file into the buffer
-    file.read((char*)buffer.data(), fileSize);
-
-    //now that the file is loaded into the buffer, we can close it
-    file.close();
-
-    //create a new shader module, using the buffer we loaded
-    VkShaderModuleCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.pNext = nullptr;
-
-    //codeSize has to be in bytes, so multply the ints in the buffer by size of int to know the real size of the buffer
-    createInfo.codeSize = buffer.size() * sizeof(uint32_t);
-    createInfo.pCode = buffer.data();
-
-    //check that the creation goes well.
-    VkShaderModule shaderModule;
-    if (vkCreateShaderModule(_device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-        return false;
-    }
-    *outShaderModule = shaderModule;
-    return true;
 }
 
 VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass)
@@ -764,7 +695,7 @@ void ViEngine::load_images()
     VkImageViewCreateInfo imageinfo = vkinit::imageview_create_info(VK_FORMAT_R8G8B8A8_SRGB, lostEmpire.image.m_image, VK_IMAGE_ASPECT_COLOR_BIT);
     vkCreateImageView(_device, &imageinfo, nullptr, &lostEmpire.imageView);
 
-    _mainDeletionQueue.push_function([=]() {
+    vi::DeletionQueue::push_function([=, this] {
         vkDestroyImageView(_device, lostEmpire.imageView, nullptr);
     });
 
@@ -823,8 +754,7 @@ void ViEngine::upload_mesh(Mesh& mesh)
                              &mesh.vertexBuffer.m_allocation,
                              nullptr));
     //add the destruction of triangle mesh buffer to the deletion queue
-    _mainDeletionQueue.push_function([=]() {
-
+    vi::DeletionQueue::push_function([=, this] {
         vmaDestroyBuffer(_allocator, mesh.vertexBuffer.m_buffer, mesh.vertexBuffer.m_allocation);
     });
 
@@ -1023,7 +953,7 @@ void ViEngine::init_scene()
     VkSampler blockySampler;
     vkCreateSampler(_device, &samplerInfo, nullptr, &blockySampler);
 
-    _mainDeletionQueue.push_function([=]() {
+    vi::DeletionQueue::push_function([=, this] {
         vkDestroySampler(_device, blockySampler, nullptr);
     });
 
@@ -1208,7 +1138,7 @@ void ViEngine::init_descriptors()
         vkUpdateDescriptorSets(_device, 3, setWrites, 0, nullptr);
     }
 
-    _mainDeletionQueue.push_function([&]() {
+    vi::DeletionQueue::push_function([this] {
         vmaDestroyBuffer(_allocator, _sceneParameterBuffer.m_buffer, _sceneParameterBuffer.m_allocation);
 
         vkDestroyDescriptorSetLayout(_device, _objectSetLayout, nullptr);
