@@ -485,6 +485,8 @@ void ViEngine::init_pipelines()
     auto color_mesh_frag_shader = std::make_unique<vi::Shader>(_device, R"(D:\projekty\Viking\Shaders\default_lit.frag.spv)");
     auto mesh_vert_shader = std::make_unique<vi::Shader>(_device, R"(D:\projekty\Viking\Shaders\tri_mesh_ssbo.vert.spv)");
 
+    auto textured_mesh_shader = std::make_unique<vi::Shader>(_device, R"(D:\projekty\Viking\Shaders\textured_mesh.shader)");
+
     //build the stage-create-info for both vertex and fragment stages. This lets the pipeline know the shader modules per stage
     PipelineBuilder pipelineBuilder;
     pipelineBuilder._shaderStages.emplace_back(

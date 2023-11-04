@@ -6,26 +6,42 @@
 #define VIKING_SHADER_HPP
 
 #include <filesystem>
+#include <unordered_map>
 #include <vulkan/vulkan.hpp>
 
 namespace vi
 {
+    enum class ShaderType
+    {
+        INVALID,
+        VERTEX,
+        FRAGMENT
+    };
+
     class Shader
     {
     public:
         explicit Shader(VkDevice t_device, const std::filesystem::path& t_filename);
         ~Shader();
 
+        //Old
         inline VkShaderModule get_shader_module()
         {
             return m_shader;
         }
 
-        void load_from_file(const std::filesystem::path& t_filename);
+        void load_shader(const std::filesystem::path& t_filename);
 
     private:
+        std::string read_file(const std::filesystem::path& t_filename);
+        std::unordered_map<ShaderType, std::string> pre_process(const std::string& t_source);
+        void compile_or_get_vulkan_binaries(std::unordered_map<ShaderType, std::string> t_sources);
+
+        //Old
         void create_shader_module(const std::vector<uint32_t>& t_buffer);
         [[nodiscard]] static std::vector<uint32_t> load_from_binary_file(const std::filesystem::path& t_filename);
+
+        std::unordered_map<ShaderType, std::vector<uint32_t>> m_vulkanSPIRV;
 
         VkDevice m_device{};
         VkShaderModule m_shader{};
