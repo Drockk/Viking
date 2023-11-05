@@ -7,7 +7,7 @@ layout (location = 3) in vec2 vTexCoord;
 
 layout (location = 0) out vec3 outColor;
 layout (location = 1) out vec2 texCoord;
-layout(set = 0, binding = 0) uniform  CameraBuffer{
+layout(set = 0, binding = 0) uniform CameraBuffer{
     mat4 view;
     mat4 proj;
 	mat4 viewproj;

@@ -35,13 +35,17 @@ namespace vi
     private:
         std::string read_file(const std::filesystem::path& t_filename);
         std::unordered_map<ShaderType, std::string> pre_process(const std::string& t_source);
-        void compile_or_get_vulkan_binaries(std::unordered_map<ShaderType, std::string> t_sources);
+        void compile_or_get_vulkan_binaries(const std::unordered_map<ShaderType, std::string>& t_sources);
+        void reflect(const std::pair<ShaderType, std::vector<uint32_t>>& t_shader_data);
+
+        std::unordered_map<ShaderType, std::vector<uint32_t>> m_vulkanSPIRV;
+        std::filesystem::path m_file_path{};
+
 
         //Old
         void create_shader_module(const std::vector<uint32_t>& t_buffer);
         [[nodiscard]] static std::vector<uint32_t> load_from_binary_file(const std::filesystem::path& t_filename);
 
-        std::unordered_map<ShaderType, std::vector<uint32_t>> m_vulkanSPIRV;
 
         VkDevice m_device{};
         VkShaderModule m_shader{};

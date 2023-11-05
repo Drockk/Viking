@@ -25,6 +25,13 @@ add_executable(Viking
 
 include_directories(.)
 
+CPMAddPackage("gh:charles-lunarg/vk-bootstrap#v0.7")
+CPMAddPackage("gh:fmtlib/fmt#10.1.1")
+CPMAddPackage("gh:gabime/spdlog@1.12.0")
+CPMAddPackage("gh:glfw/glfw#3.3.8")
+CPMAddPackage("gh:GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator#v3.0.1")
+CPMAddPackage("gh:g-truc/glm#0.9.9.8")
+
 target_include_directories(Viking
 	PUBLIC
         ${VULKAN_INCLUDE_DIRS}
@@ -32,12 +39,10 @@ target_include_directories(Viking
         ${PROJECT_SOURCE_DIR}/../dependencies/stb
 )
 
-CPMAddPackage("gh:charles-lunarg/vk-bootstrap#v0.7")
-CPMAddPackage("gh:fmtlib/fmt#10.1.1")
-CPMAddPackage("gh:gabime/spdlog@1.12.0")
-CPMAddPackage("gh:glfw/glfw#3.3.8")
-CPMAddPackage("gh:GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator#v3.0.1")
-CPMAddPackage("gh:g-truc/glm#0.9.9.8")
+target_link_directories(Viking
+    PUBLIC
+        $ENV{VULKAN_SDK}/Lib
+)
 
 target_link_libraries(Viking
     PUBLIC
@@ -47,6 +52,10 @@ target_link_libraries(Viking
         spdlog
         vk-bootstrap::vk-bootstrap
         Vulkan::Vulkan
+        shaderc_sharedd
+        spirv-cross-cored.lib
+        spirv-cross-glsld
+        SPIRV-Toolsd
         VulkanMemoryAllocator
 )
 

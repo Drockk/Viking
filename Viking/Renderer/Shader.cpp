@@ -7,6 +7,8 @@
 
 #include <fstream>
 #include <shaderc/shaderc.hpp>
+#include <spirv_cross/spirv_cross.hpp>
+#include <spirv_cross/spirv_glsl.hpp>
 #include <stdexcept>
 #include <fmt/format.h>
 
@@ -40,9 +42,56 @@ namespace vi
             VI_CORE_ERROR("Unknown shader type");
             return ShaderType::INVALID;
         }
+
+        static std::string shader_type_to_string(ShaderType t_stage)
+        {
+            switch (t_stage)
+            {
+                case ShaderType::VERTEX:
+                    return "vertex";
+                case ShaderType::FRAGMENT:
+                    return "fragment";
+                case ShaderType::INVALID:
+                    [[fallthrough]];
+            }
+
+            VI_CORE_ERROR("Unknown shader type");
+            return {};
+        }
+
+        static std::string shader_stage_cached_vulkan_file_extension(ShaderType t_stage)
+        {
+            switch (t_stage)
+            {
+                case ShaderType::VERTEX:
+                    return ".cached_vulkan.vert";
+                case ShaderType::FRAGMENT:
+                    return ".cached_vulkan.frag";
+                case ShaderType::INVALID:
+                    [[fallthrough]];
+            }
+
+            VI_CORE_ERROR("Unknown shader type");
+            return {};
+        }
+
+        static shaderc_shader_kind glsl_shader_stage_to_shaderc(ShaderType t_stage)
+        {
+            switch (t_stage) {
+            case ShaderType::VERTEX:
+                return shaderc_glsl_vertex_shader;
+            case ShaderType::FRAGMENT:
+                return shaderc_glsl_fragment_shader;
+            case ShaderType::INVALID:
+                [[fallthrough]];
+            }
+
+            VI_CORE_ERROR("Unknown shader type");
+            return {};
+        }
     }
 
-    Shader::Shader(VkDevice t_device, const fs::path& t_filename): m_device{t_device}
+    Shader::Shader(VkDevice t_device, const fs::path& t_filename): m_file_path{t_filename}, m_device{t_device}
     {
         utils::createCacheDirectoryIfNeeded();
 
@@ -164,18 +213,81 @@ namespace vi
         return shader_sources;
     }
 
-    void Shader::compile_or_get_vulkan_binaries(std::unordered_map<ShaderType, std::string> t_sources)
+    void Shader::compile_or_get_vulkan_binaries(const std::unordered_map<ShaderType, std::string>& t_sources)
     {
-//        shaderc::Compiler compiler;
-//        shaderc::CompileOptions options;
-//        options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
-//
-//        options.SetOptimizationLevel(shaderc_optimization_level_performance);
-//
-//        std::filesystem::path cacheDirectory = utils::getCacheDirectory();
-//
-//        auto& shaderData = m_vulkanSPIRV;
-//        shaderData.clear();
+        shaderc::Compiler compiler;
+        shaderc::CompileOptions options;
+        options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
 
+        options.SetOptimizationLevel(shaderc_optimization_level_performance);
+
+        std::filesystem::path cache_directory = utils::getCacheDirectory();
+
+        auto& shader_data = m_vulkanSPIRV;
+        shader_data.clear();
+        for (auto&& [stage, source]: t_sources) {
+            auto cached_path = cache_directory / (m_file_path.filename().string() + utils::shader_stage_cached_vulkan_file_extension(stage));
+
+            if (fs::exists(cached_path)) {
+                const auto file_size = fs::file_size(cached_path);
+
+                std::ifstream cached_shader_file(cached_path, std::ios::in | std::ios::binary);
+
+                if (not cached_shader_file.is_open()) {
+                    throw std::invalid_argument(fmt::format("Cannot open: {}", cached_path.string()));
+                }
+
+                auto& data = shader_data[stage];
+                data.resize(file_size / sizeof(uint32_t));
+
+                cached_shader_file.read(reinterpret_cast<char*>(data.data()), static_cast<std::streamsize>(file_size));
+            }
+            else {
+                shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(source, utils::glsl_shader_stage_to_shaderc(stage), m_file_path.string().c_str(), options);
+                if (module.GetCompilationStatus() != shaderc_compilation_status_success) {
+                    VI_CORE_ERROR(module.GetErrorMessage());
+                    return;
+                }
+
+                shader_data[stage] = { module.cbegin(), module.cend() };
+
+                std::ofstream cached_shader_file(cached_path, std::ios::out | std::ios::binary);
+                if (not cached_shader_file.is_open()) {
+                    throw std::invalid_argument(fmt::format("Cannot create: {}", cached_path.string()));
+                }
+
+                auto& data = shader_data[stage];
+                cached_shader_file.write(reinterpret_cast<char*>(data.data()), data.size() * sizeof(uint32_t));
+                cached_shader_file.flush();
+                cached_shader_file.close();
+            }
+        }
+
+        std::ranges::for_each(shader_data, [this](const auto& t_shader_data){
+            reflect(t_shader_data);
+        });
+    }
+
+    void Shader::reflect(const std::pair<ShaderType, std::vector<uint32_t>>& t_shader_data) {
+        const auto& [stage, data] = t_shader_data;
+
+        spirv_cross::Compiler compiler(data);
+        spirv_cross::ShaderResources resources = compiler.get_shader_resources();
+
+        VI_CORE_TRACE("{0} {1}", utils::shader_type_to_string(stage), m_file_path);
+        VI_CORE_TRACE("    {0} uniform buffers", resources.uniform_buffers.size());
+        VI_CORE_TRACE("    {0} resources", resources.sampled_images.size());
+        VI_CORE_TRACE("Uniform buffers:");
+        for (const auto& resource : resources.uniform_buffers) {
+            const auto& bufferType = compiler.get_type(resource.base_type_id);
+            uint32_t bufferSize = compiler.get_declared_struct_size(bufferType);
+            uint32_t binding = compiler.get_decoration(resource.id, spv::DecorationBinding);
+            int memberCount = bufferType.member_types.size();
+
+            VI_CORE_TRACE("  {0}", resource.name);
+            VI_CORE_TRACE("    Size = {0}", bufferSize);
+            VI_CORE_TRACE("    Binding = {0}", binding);
+            VI_CORE_TRACE("    Members = {0}", memberCount);
+        }
     }
 } // vi
