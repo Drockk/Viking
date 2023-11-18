@@ -21,7 +21,7 @@ namespace vi
 
             void create_cache_directory_if_needed()
             {
-                if (const auto cache_directory = get_cache_directory(); !fs::exists(cache_directory)) {
+                if (const auto cache_directory = get_cache_directory(); !exists(cache_directory)) {
                     create_directories(cache_directory);
                 }
             }
@@ -101,11 +101,17 @@ namespace vi
         const auto source = read_file(p_filename);
         const auto shader_sources = pre_process(source);
         compile_or_get_vulkan_binaries(shader_sources);
+        create_shader_modules();
     }
 
     Shader::~Shader()
     {
         vkDestroyShaderModule(m_device, m_shader, nullptr);
+
+        std::ranges::for_each(m_shaders, [this](const std::pair<ShaderType, VkShaderModule>&& p_shader) {
+            const auto& [type, shader] = p_shader;
+            vkDestroyShaderModule(m_device, shader, nullptr);
+        });
     }
 
     void Shader::load_shader(const fs::path &p_filename)
@@ -253,7 +259,7 @@ namespace vi
                 }
 
                 auto& data = shader_data[stage];
-                cached_shader_file.write(reinterpret_cast<char*>(data.data()), data.size() * sizeof(uint32_t));
+                cached_shader_file.write(reinterpret_cast<char*>(data.data()), static_cast<std::streamsize>(data.size()) * sizeof(uint32_t));
                 cached_shader_file.flush();
                 cached_shader_file.close();
             }
@@ -285,5 +291,25 @@ namespace vi
             VI_CORE_TRACE("    Binding = {0}", binding);
             VI_CORE_TRACE("    Members = {0}", member_count);
         }
+    }
+
+    void Shader::create_shader_modules()
+    {
+        std::ranges::for_each(m_vulkan_spirv, [this](const std::pair<ShaderType, std::vector<uint32_t>>&& p_spriv_output) {
+            const auto& [type, data] = p_spriv_output;
+
+            VkShaderModuleCreateInfo create_info{};
+            create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+            create_info.pNext = nullptr;
+            create_info.codeSize = data.size() * sizeof(uint32_t);
+            create_info.pCode = data.data();
+
+            VkShaderModule shader{};
+            if (const auto result = vkCreateShaderModule(m_device, &create_info, nullptr, &shader); result != VK_SUCCESS) {
+                throw std::runtime_error(fmt::format("Cannot create shader module, error: {}", static_cast<int>(result)));
+            }
+
+            m_shaders.emplace(type, shader);
+        });
     }
 } // vi

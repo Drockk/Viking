@@ -183,7 +183,7 @@ void ViEngine::init_vulkan()
     auto inst_ret = builder.set_app_name("Example Vulkan Application")
             .request_validation_layers(USE_VALIDATION_LAYERS)
             .use_default_debug_messenger()
-            .require_api_version(1, 1, 0)
+            .require_api_version(1, 3, 0)
             .build();
 
     auto vkb_inst = inst_ret.value();
@@ -198,7 +198,7 @@ void ViEngine::init_vulkan()
     //We want a gpu that can write to the SDL surface and supports vulkan 1.2
     vkb::PhysicalDeviceSelector selector{ vkb_inst };
     auto physical_device = selector
-            .set_minimum_version(1, 1)
+            .set_minimum_version(1, 3)
             .set_surface(m_surface)
             .select()
             .value();
@@ -570,11 +570,17 @@ void ViEngine::init_pipelines()
     create_material(mesh_pipeline, meshPipLayout, "defaultmesh");
 
     pipeline_builder.m_shader_stages.clear();
-    pipeline_builder.m_shader_stages.emplace_back(
-            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, mesh_vert_shader->get_shader_module()));
+    //pipeline_builder.m_shader_stages.emplace_back(
+    //        vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, mesh_vert_shader->get_shader_module()));
+
+    //pipeline_builder.m_shader_stages.emplace_back(
+    //        vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, textured_mesh_frag_shader->get_shader_module()));
 
     pipeline_builder.m_shader_stages.emplace_back(
-            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, textured_mesh_frag_shader->get_shader_module()));
+            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, textured_mesh_shader->get_shader_module(vi::ShaderType::VERTEX)));
+
+    pipeline_builder.m_shader_stages.emplace_back(
+        vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, textured_mesh_shader->get_shader_module(vi::ShaderType::FRAGMENT)));
 
     pipeline_builder.m_pipeline_layout = texturedPipeLayout;
     VkPipeline texPipeline = pipeline_builder.build_pipeline(m_device, m_render_pass);

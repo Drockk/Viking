@@ -20,6 +20,10 @@ namespace vi
         explicit Shader(VkDevice p_device, const std::filesystem::path& p_filename);
         ~Shader();
 
+        [[nodiscard]] VkShaderModule get_shader_module(const ShaderType p_type) const {
+            return m_shaders.at(p_type);
+        }
+
         //Old
         [[nodiscard]] VkShaderModule get_shader_module() const
         {
@@ -33,8 +37,10 @@ namespace vi
         static std::unordered_map<ShaderType, std::string> pre_process(const std::string& p_source);
         void compile_or_get_vulkan_binaries(const std::unordered_map<ShaderType, std::string>& p_sources);
         void reflect(const std::pair<ShaderType, std::vector<uint32_t>>& p_shader_data);
+        void create_shader_modules();
 
         std::unordered_map<ShaderType, std::vector<uint32_t>> m_vulkan_spirv;
+        std::unordered_map<ShaderType, VkShaderModule> m_shaders;
         std::filesystem::path m_file_path{};
 
 

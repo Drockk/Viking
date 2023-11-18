@@ -3,3 +3,8 @@
 .vs/*
 cmake-build-debug/
 out/*
+
+#Files
+*.DotSettings.*
+*.pdb
+*.idb
