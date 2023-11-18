@@ -1,7 +1,3 @@
-//
-// Created by batzi on 29.10.2023.
-//
-
 #ifndef VIKING_LOG_HPP
 #define VIKING_LOG_HPP
 

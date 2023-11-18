@@ -1,21 +1,17 @@
-//
-// Created by batzi on 28.10.2023.
-//
-
 #include "Window.hpp"
 
 #include <stdexcept>
 
 namespace vi {
-    Window::Window(std::string_view t_title, std::pair<int32_t, int32_t> t_resolution) {
+    Window::Window(const std::string_view p_title, std::pair<int32_t, int32_t> p_resolution) {
         if (not glfwInit()) {
             throw std::runtime_error("Cannot initialize GLFW");
         }
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-        auto [width, height] = t_resolution;
-        m_window = glfwCreateWindow(width, height, std::string(t_title).c_str(), nullptr, nullptr);
+        auto [width, height] = p_resolution;
+        m_window = glfwCreateWindow(width, height, std::string(p_title).c_str(), nullptr, nullptr);
         if (not m_window) {
             glfwTerminate();
             throw std::runtime_error("Cannot create GLFW window");
@@ -29,9 +25,9 @@ namespace vi {
         glfwTerminate();
     }
 
-    VkSurfaceKHR Window::create_surface(VkInstance t_instance) {
+    VkSurfaceKHR Window::create_surface(const VkInstance p_instance) const {
         VkSurfaceKHR surface;
-        if (glfwCreateWindowSurface(t_instance, m_window, nullptr, &surface)) {
+        if (glfwCreateWindowSurface(p_instance, m_window, nullptr, &surface)) {
             throw std::runtime_error("Cannot create GLFW window surface");
         }
 
@@ -42,7 +38,7 @@ namespace vi {
         glfwPollEvents();
     }
 
-    bool Window::should_close() {
+    bool Window::should_close() const {
         return glfwWindowShouldClose(m_window);
     }
 } // vi

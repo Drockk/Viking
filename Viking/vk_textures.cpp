@@ -33,11 +33,11 @@ bool vkutil::load_image_from_file(ViEngine& engine, const char* file, AllocatedI
 
     //copy data to buffer
     void* data;
-    vmaMapMemory(engine._allocator, stagingBuffer.m_allocation, &data);
+    vmaMapMemory(engine.m_allocator, stagingBuffer.m_allocation, &data);
 
     memcpy(data, pixel_ptr, static_cast<size_t>(imageSize));
 
-    vmaUnmapMemory(engine._allocator, stagingBuffer.m_allocation);
+    vmaUnmapMemory(engine.m_allocator, stagingBuffer.m_allocation);
     //we no longer need the loaded data, so we can free the pixels as they are now in the staging buffer
     stbi_image_free(pixels);
 
@@ -54,7 +54,7 @@ bool vkutil::load_image_from_file(ViEngine& engine, const char* file, AllocatedI
     dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
     //allocate and create the image
-    vmaCreateImage(engine._allocator, &dimg_info, &dimg_allocinfo, &newImage.m_image, &newImage.m_allocation, nullptr);
+    vmaCreateImage(engine.m_allocator, &dimg_info, &dimg_allocinfo, &newImage.m_image, &newImage.m_allocation, nullptr);
 
     engine.immediate_submit([&](VkCommandBuffer cmd) {
         VkImageSubresourceRange range;
@@ -105,10 +105,10 @@ bool vkutil::load_image_from_file(ViEngine& engine, const char* file, AllocatedI
     });
 
     vi::DeletionQueue::push_function([=, &engine] {
-        vmaDestroyImage(engine._allocator, newImage.m_image, newImage.m_allocation);
+        vmaDestroyImage(engine.m_allocator, newImage.m_image, newImage.m_allocation);
     });
 
-    vmaDestroyBuffer(engine._allocator, stagingBuffer.m_buffer, stagingBuffer.m_allocation);
+    vmaDestroyBuffer(engine.m_allocator, stagingBuffer.m_buffer, stagingBuffer.m_allocation);
 
     VI_CORE_TRACE("Loaded texture: {}", file);
 

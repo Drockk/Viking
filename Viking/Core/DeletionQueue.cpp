@@ -8,16 +8,16 @@
 
 namespace vi
 {
-    void DeletionQueue::push_function(DeletionQueue::DeleteFunction &&t_function)
+    void DeletionQueue::push_function(DeleteFunction &&p_function)
     {
-        m_deletors.push_back(t_function);
+        m_deletors.emplace_back(p_function);
     }
 
     void DeletionQueue::flush()
     {
-        std::for_each(m_deletors.rbegin(), m_deletors.rend(), [](DeleteFunction& t_function){
-            if (t_function) {
-                t_function();
+        std::for_each(m_deletors.rbegin(), m_deletors.rend(), [](const DeleteFunction& p_function){
+            if (p_function) {
+                p_function();
             }
         });
     }

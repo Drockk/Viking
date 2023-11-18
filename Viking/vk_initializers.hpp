@@ -16,7 +16,7 @@ namespace vkinit
 
     VkSemaphoreCreateInfo semaphore_create_info(VkSemaphoreCreateFlags flags = 0);
 
-    VkSubmitInfo submit_info(VkCommandBuffer* cmd);
+    VkSubmitInfo submit_info(const VkCommandBuffer* cmd);
 
     VkPresentInfoKHR present_info();
 
@@ -44,8 +44,8 @@ namespace vkinit
 
     VkDescriptorSetLayoutBinding descriptorset_layout_binding(VkDescriptorType type, VkShaderStageFlags stageFlags, uint32_t binding);
 
-    VkWriteDescriptorSet write_descriptor_buffer(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorBufferInfo* bufferInfo, uint32_t binding);
+    VkWriteDescriptorSet write_descriptor_buffer(VkDescriptorType type, VkDescriptorSet dstSet, const VkDescriptorBufferInfo* bufferInfo, uint32_t binding);
 
     VkSamplerCreateInfo sampler_create_info(VkFilter filters, VkSamplerAddressMode samplerAddressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
-    VkWriteDescriptorSet write_descriptor_image(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorImageInfo* imageInfo, uint32_t binding);
+    VkWriteDescriptorSet write_descriptor_image(VkDescriptorType type, VkDescriptorSet dstSet, const VkDescriptorImageInfo* imageInfo, uint32_t binding);
 }

@@ -1,7 +1,3 @@
-//
-// Created by batzi on 29.10.2023.
-//
-
 #include "Log.hpp"
 #include <spdlog/sinks/dist_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -11,11 +7,11 @@ namespace vi {
     void Log::init() {
         auto dist_sink = std::make_shared<spdlog::sinks::dist_sink_mt>();
 
-        auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+        const auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
         console_sink->set_pattern("%^[%T] %n: %v%$");
         dist_sink->add_sink(console_sink);
 
-        auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("Viking.log", true);
+        const auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("Viking.log", true);
         file_sink->set_pattern("[%T] [%l] %n: %v");
         dist_sink->add_sink(file_sink);
 
