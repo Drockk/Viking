@@ -15,6 +15,8 @@
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
 
+#include <spdlog/spdlog.h>
+
 constexpr bool USE_VALIDATION_LAYERS{ true };
 
 //We want to immediately abort when there is an error.
@@ -473,18 +475,15 @@ void ViEngine::init_sync_structures()
 
 void ViEngine::init_pipelines()
 {
-    auto textured_mesh_frag_shader = std::make_unique<vi::Shader>(m_device, R"(D:\projekty\Viking\Shaders\textured_lit.frag.spv)");
-    auto color_mesh_frag_shader = std::make_unique<vi::Shader>(m_device, R"(D:\projekty\Viking\Shaders\default_lit.frag.spv)");
-    auto mesh_vert_shader = std::make_unique<vi::Shader>(m_device, R"(D:\projekty\Viking\Shaders\tri_mesh_ssbo.vert.spv)");
-
+    auto colored_mesh_shader = std::make_unique<vi::Shader>(m_device, R"(D:\projekty\Viking\Shaders\colored_mesh.shader)");
     auto textured_mesh_shader = std::make_unique<vi::Shader>(m_device, R"(D:\projekty\Viking\Shaders\textured_mesh.shader)");
 
     //build the stage-create-info for both vertex and fragment stages. This lets the pipeline know the shader modules per stage
     PipelineBuilder pipeline_builder;
     pipeline_builder.m_shader_stages.emplace_back(
-            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, mesh_vert_shader->get_shader_module()));
+            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, colored_mesh_shader->get_shader_module(vi::ShaderType::VERTEX)));
     pipeline_builder.m_shader_stages.emplace_back(
-            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, color_mesh_frag_shader->get_shader_module()));
+            vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, colored_mesh_shader->get_shader_module(vi::ShaderType::FRAGMENT)));
 
     //we start from just the default empty pipeline layout info
     VkPipelineLayoutCreateInfo mesh_pipeline_layout_info = vkinit::pipeline_layout_create_info();
@@ -506,8 +505,8 @@ void ViEngine::init_pipelines()
     mesh_pipeline_layout_info.setLayoutCount = 2;
     mesh_pipeline_layout_info.pSetLayouts = set_layouts;
 
-    VkPipelineLayout meshPipLayout;
-    VK_CHECK(vkCreatePipelineLayout(m_device, &mesh_pipeline_layout_info, nullptr, &meshPipLayout));
+    VkPipelineLayout mesh_pipeline_layout{nullptr};
+    VK_CHECK(vkCreatePipelineLayout(m_device, &mesh_pipeline_layout_info, nullptr, &mesh_pipeline_layout));
 
     //we start from the normal mesh layout
     VkPipelineLayoutCreateInfo textured_pipeline_layout_info = mesh_pipeline_layout_info;
@@ -517,11 +516,11 @@ void ViEngine::init_pipelines()
     textured_pipeline_layout_info.setLayoutCount = 3;
     textured_pipeline_layout_info.pSetLayouts = textured_set_layouts;
 
-    VkPipelineLayout texturedPipeLayout;
-    VK_CHECK(vkCreatePipelineLayout(m_device, &textured_pipeline_layout_info, nullptr, &texturedPipeLayout));
+    VkPipelineLayout textured_pipeline_layout;
+    VK_CHECK(vkCreatePipelineLayout(m_device, &textured_pipeline_layout_info, nullptr, &textured_pipeline_layout));
 
     //hook the push constants layout
-    pipeline_builder.m_pipeline_layout = meshPipLayout;
+    pipeline_builder.m_pipeline_layout = mesh_pipeline_layout;
 
     //vertex input controls how to read vertices from vertex buffers. We aren't using it yet
     pipeline_builder.m_vertex_input_info = vkinit::vertex_input_state_create_info();
@@ -567,14 +566,9 @@ void ViEngine::init_pipelines()
     //build the mesh triangle pipeline
     auto mesh_pipeline = pipeline_builder.build_pipeline(m_device, m_render_pass);
 
-    create_material(mesh_pipeline, meshPipLayout, "defaultmesh");
+    create_material(mesh_pipeline, mesh_pipeline_layout, "defaultmesh");
 
     pipeline_builder.m_shader_stages.clear();
-    //pipeline_builder.m_shader_stages.emplace_back(
-    //        vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, mesh_vert_shader->get_shader_module()));
-
-    //pipeline_builder.m_shader_stages.emplace_back(
-    //        vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, textured_mesh_frag_shader->get_shader_module()));
 
     pipeline_builder.m_shader_stages.emplace_back(
             vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, textured_mesh_shader->get_shader_module(vi::ShaderType::VERTEX)));
@@ -582,16 +576,16 @@ void ViEngine::init_pipelines()
     pipeline_builder.m_shader_stages.emplace_back(
         vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, textured_mesh_shader->get_shader_module(vi::ShaderType::FRAGMENT)));
 
-    pipeline_builder.m_pipeline_layout = texturedPipeLayout;
+    pipeline_builder.m_pipeline_layout = textured_pipeline_layout;
     VkPipeline texPipeline = pipeline_builder.build_pipeline(m_device, m_render_pass);
-    create_material(texPipeline, texturedPipeLayout, "texturedmesh");
+    create_material(texPipeline, textured_pipeline_layout, "texturedmesh");
 
     vi::DeletionQueue::push_function([=, this] {
         vkDestroyPipeline(m_device, mesh_pipeline, nullptr);
         vkDestroyPipeline(m_device, texPipeline, nullptr);
 
-        vkDestroyPipelineLayout(m_device, meshPipLayout, nullptr);
-        vkDestroyPipelineLayout(m_device, texturedPipeLayout, nullptr);
+        vkDestroyPipelineLayout(m_device, mesh_pipeline_layout, nullptr);
+        vkDestroyPipelineLayout(m_device, textured_pipeline_layout, nullptr);
     });
 }
 
@@ -966,29 +960,29 @@ AllocatedBuffer ViEngine::create_buffer(const size_t p_alloc_size, const VkBuffe
     bufferInfo.size = p_alloc_size;
     bufferInfo.usage = p_usage;
 
-    //let the VMA library know that this data should be writeable by CPU, but also readable by GPU
-    VmaAllocationCreateInfo vmaallocInfo{};
-    vmaallocInfo.usage = p_memory_usage;
+    //let the VMA library know that this data should be write-able by CPU, but also readable by GPU
+    VmaAllocationCreateInfo vma_alloc_info{};
+    vma_alloc_info.usage = p_memory_usage;
 
-    AllocatedBuffer newBuffer;
+    AllocatedBuffer new_buffer{};
 
     //allocate the buffer
-    VK_CHECK(vmaCreateBuffer(m_allocator, &bufferInfo, &vmaallocInfo,
-                             &newBuffer.m_buffer,
-                             &newBuffer.m_allocation,
+    VK_CHECK(vmaCreateBuffer(m_allocator, &bufferInfo, &vma_alloc_info,
+                             &new_buffer.m_buffer,
+                             &new_buffer.m_allocation,
                              nullptr));
 
-    return newBuffer;
+    return new_buffer;
 }
 
 size_t ViEngine::pad_uniform_buffer_size(const size_t p_original_size) const {
     // Calculate required alignment based on minimum device offset alignment
-    const auto minUboAlignment = m_gpu_properties.limits.minUniformBufferOffsetAlignment;
-    auto alignedSize = p_original_size;
-    if (minUboAlignment > 0) {
-        alignedSize = (alignedSize + minUboAlignment - 1) & ~(minUboAlignment - 1);
+    const auto min_ubo_alignment = m_gpu_properties.limits.minUniformBufferOffsetAlignment;
+    auto aligned_size = p_original_size;
+    if (min_ubo_alignment > 0) {
+        aligned_size = (aligned_size + min_ubo_alignment - 1) & ~(min_ubo_alignment - 1);
     }
-    return alignedSize;
+    return aligned_size;
 }
 
 

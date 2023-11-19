@@ -8,6 +8,8 @@
 #include <stdexcept>
 #include <fmt/format.h>
 
+#include <spdlog/fmt/bin_to_hex.h>
+
 namespace vi
 {
     namespace fs = std::filesystem;
@@ -159,6 +161,8 @@ namespace vi
         if (const auto result = vkCreateShaderModule(m_device, &create_info, nullptr, &m_shader); result != VK_SUCCESS) {
             throw std::runtime_error(fmt::format("Cannot create shader module, error: {}", static_cast<int>(result)));
         }
+
+        VI_CORE_INFO("OLD\n {}", spdlog::to_hex(std::begin(p_buffer), std::end(p_buffer)));
     }
 
     std::string Shader::read_file(const std::filesystem::path &p_filename)
