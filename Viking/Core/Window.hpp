@@ -1,5 +1,4 @@
-#ifndef VIKING_WINDOW_HPP
-#define VIKING_WINDOW_HPP
+#pragma once
 
 #include <utility>
 
@@ -22,5 +21,3 @@ namespace vi {
         GLFWwindow* m_window{nullptr};
     };
 } // vi
-
-#endif //VIKING_WINDOW_HPP

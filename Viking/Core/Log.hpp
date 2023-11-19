@@ -1,5 +1,4 @@
-#ifndef VIKING_LOG_HPP
-#define VIKING_LOG_HPP
+#pragma once
 
 #pragma warning(push, 0)
 #include <spdlog/spdlog.h>
@@ -40,5 +39,3 @@ namespace vi {
 #define VI_WARN(...)          ::vi::Log::get_client_logger()->warn(__VA_ARGS__)
 #define VI_ERROR(...)         ::vi::Log::get_client_logger()->error(__VA_ARGS__)
 #define VI_CRITICAL(...)      ::vi::Log::get_client_logger()->critical(__VA_ARGS__)
-
-#endif //VIKING_LOG_HPP

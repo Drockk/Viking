@@ -1,5 +1,4 @@
-#ifndef VIKING_DELETION_QUEUE_HPP
-#define VIKING_DELETION_QUEUE_HPP
+#pragma once
 
 #include <deque>
 #include <functional>
@@ -18,5 +17,3 @@ namespace vi
         inline static std::deque<DeleteFunction> m_deletors;
     };
 } // vi
-
-#endif //VIKING_DELETION_QUEUE_HPP

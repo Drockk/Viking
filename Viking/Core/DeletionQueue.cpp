@@ -1,7 +1,3 @@
-//
-// Created by batzi on 29.10.2023.
-//
-
 #include "DeletionQueue.hpp"
 
 #include <algorithm>

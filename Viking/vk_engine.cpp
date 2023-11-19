@@ -4,6 +4,7 @@
 #include "vk_types.hpp"
 
 #include "Core/DeletionQueue.hpp"
+#include "Renderer/GraphicsContext.hpp"
 #include "Renderer/Shader.hpp"
 
 #include "VkBootstrap.h"
@@ -11,13 +12,6 @@
 #include "Core/Log.hpp"
 
 #include <iostream>
-
-#define VMA_IMPLEMENTATION
-#include "vk_mem_alloc.h"
-
-#include <spdlog/spdlog.h>
-
-constexpr bool USE_VALIDATION_LAYERS{ true };
 
 //We want to immediately abort when there is an error.
 // In normal engines, this would give an error message to the user, or perform a dump of state.
@@ -38,7 +32,8 @@ void ViEngine::init()
 
     m_window = std::make_unique<vi::Window>("Vi Engine", std::pair{m_window_extent.width, m_window_extent.height});
 
-    init_vulkan();
+    vi::GraphicsContext::init("Viking Engine", m_window);
+
     init_swapchain();
     init_default_renderpass();
     init_framebuffers();
@@ -50,29 +45,26 @@ void ViEngine::init()
     load_images();
     load_meshes();
     init_scene();
+
     //everything went fine
     m_is_initialized = true;
 }
 void ViEngine::cleanup() const {
     if (m_is_initialized) {
-        //Make sure the gpu has stopped doing its things
-        vkDeviceWaitIdle(m_device);
+        vi::GraphicsContext::wait_for_device();
 
         vi::DeletionQueue::flush();
 
-        vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
-
-        vkDestroyDevice(m_device, nullptr);
-        vkb::destroy_debug_utils_messenger(m_instance, m_debug_messenger);
-        vkDestroyInstance(m_instance, nullptr);
+        vi::GraphicsContext::cleanup();
     }
 }
 
 void ViEngine::draw()
 {
+    const auto device = vi::GraphicsContext::get_device();
     //Wait until the gpu has finished rendering the last frame. Timeout of 1 second
-    VK_CHECK(vkWaitForFences(m_device, 1, &get_current_frame().m_render_fence, true, 1000000000));
-    VK_CHECK(vkResetFences(m_device, 1, &get_current_frame().m_render_fence));
+    VK_CHECK(vkWaitForFences(device, 1, &get_current_frame().m_render_fence, true, 1000000000));
+    VK_CHECK(vkResetFences(device, 1, &get_current_frame().m_render_fence));
 
     //now that we are sure that the commands finished executing,
     // we can safely reset the command buffer to begin recording again.
@@ -80,7 +72,7 @@ void ViEngine::draw()
 
     //request image from the swapchain
     uint32_t swapchain_image_index{};
-    VK_CHECK(vkAcquireNextImageKHR(m_device, m_swapchain, 1000000000, get_current_frame().m_present_semaphore, nullptr, &swapchain_image_index));
+    VK_CHECK(vkAcquireNextImageKHR(device, m_swapchain, 1000000000, get_current_frame().m_present_semaphore, nullptr, &swapchain_image_index));
 
     //Naming it cmd for shorter writing
     const auto cmd = get_current_frame().m_main_command_buffer;
@@ -136,7 +128,8 @@ void ViEngine::draw()
 
     //submit command buffer to the queue and execute it.
     // _renderFence will now block until the graphic commands finish execution
-    VK_CHECK(vkQueueSubmit(m_graphics_queue, 1, &submit, get_current_frame().m_render_fence));
+    const auto graphics_queue = vi::GraphicsContext::get_graphics_queue();
+    VK_CHECK(vkQueueSubmit(graphics_queue, 1, &submit, get_current_frame().m_render_fence));
 
     //prepare present
     // this will put the image we just rendered to into the visible window.
@@ -152,7 +145,7 @@ void ViEngine::draw()
 
     present_info.pImageIndices = &swapchain_image_index;
 
-    VK_CHECK(vkQueuePresentKHR(m_graphics_queue, &present_info));
+    VK_CHECK(vkQueuePresentKHR(graphics_queue, &present_info));
 
     //increase the number of frames drawn
     m_frame_number++;
@@ -177,68 +170,13 @@ FrameData& ViEngine::get_last_frame()
     return m_frames[(m_frame_number -1) % 2];
 }
 
-void ViEngine::init_vulkan()
-{
-    vkb::InstanceBuilder builder;
-
-    //make the vulkan instance, with basic debug features
-    auto inst_ret = builder.set_app_name("Example Vulkan Application")
-            .request_validation_layers(USE_VALIDATION_LAYERS)
-            .use_default_debug_messenger()
-            .require_api_version(1, 3, 0)
-            .build();
-
-    auto vkb_inst = inst_ret.value();
-
-    //grab the instance
-    m_instance = vkb_inst.instance;
-    m_debug_messenger = vkb_inst.debug_messenger;
-
-    m_surface = m_window->create_surface(m_instance);
-
-    //use vkbootstrap to select a gpu.
-    //We want a gpu that can write to the SDL surface and supports vulkan 1.2
-    vkb::PhysicalDeviceSelector selector{ vkb_inst };
-    auto physical_device = selector
-            .set_minimum_version(1, 3)
-            .set_surface(m_surface)
-            .select()
-            .value();
-
-    //create the final vulkan device
-
-    vkb::DeviceBuilder device_builder{ physical_device };
-
-    auto vkb_device = device_builder.build().value();
-
-    // Get the VkDevice handle used in the rest of a vulkan application
-    m_device = vkb_device.device;
-    m_chosen_gpu = physical_device.physical_device;
-
-    // use vkbootstrap to get a Graphics queue
-    m_graphics_queue = vkb_device.get_queue(vkb::QueueType::graphics).value();
-
-    m_graphics_queue_family = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
-
-    //initialize the memory allocator
-    VmaAllocatorCreateInfo allocator_info = {};
-    allocator_info.physicalDevice = m_chosen_gpu;
-    allocator_info.device = m_device;
-    allocator_info.instance = m_instance;
-    vmaCreateAllocator(&allocator_info, &m_allocator);
-
-    vi::DeletionQueue::push_function([&] {
-        vmaDestroyAllocator(m_allocator);
-    });
-
-    vkGetPhysicalDeviceProperties(m_chosen_gpu, &m_gpu_properties);
-
-    VI_CORE_TRACE("The gpu has a minimum buffer alignment of {}", m_gpu_properties.limits.minUniformBufferOffsetAlignment);
-}
-
 void ViEngine::init_swapchain()
 {
-    vkb::SwapchainBuilder swapchain_builder{m_chosen_gpu,m_device,m_surface };
+    const auto device = vi::GraphicsContext::get_device();
+    const auto chosen_gpu = vi::GraphicsContext::get_chosen_gpu();
+    const auto surface = vi::GraphicsContext::get_surface();
+
+    vkb::SwapchainBuilder swapchain_builder{ chosen_gpu, device, surface };
 
     auto vkb_swapchain = swapchain_builder
             .use_default_format_selection()
@@ -255,8 +193,8 @@ void ViEngine::init_swapchain()
 
     m_swachain_image_format = vkb_swapchain.image_format;
 
-    vi::DeletionQueue::push_function([this] {
-        vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
+    vi::DeletionQueue::push_function([this, device] {
+        vkDestroySwapchainKHR(device, m_swapchain, nullptr);
     });
 
     //depth image size will match the window
@@ -278,16 +216,17 @@ void ViEngine::init_swapchain()
     dimg_allocinfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     //allocate and create the image
-    vmaCreateImage(m_allocator, &dimg_info, &dimg_allocinfo, &m_depth_image.m_image, &m_depth_image.m_allocation, nullptr);
+    auto allocator = vi::GraphicsContext::get_allocator();
+    vmaCreateImage(allocator, &dimg_info, &dimg_allocinfo, &m_depth_image.m_image, &m_depth_image.m_allocation, nullptr);
 
     //build a image-view for the depth image to use for rendering
     VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(m_depth_format, m_depth_image.m_image, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-    VK_CHECK(vkCreateImageView(m_device, &dview_info, nullptr, &m_depth_image_view));
+    VK_CHECK(vkCreateImageView(device, &dview_info, nullptr, &m_depth_image_view));
 
-    vi::DeletionQueue::push_function([this] {
-        vkDestroyImageView(m_device, m_depth_image_view, nullptr);
-        vmaDestroyImage(m_allocator, m_depth_image.m_image, m_depth_image.m_allocation);
+    vi::DeletionQueue::push_function([this, allocator, device] {
+        vkDestroyImageView(device, m_depth_image_view, nullptr);
+        vmaDestroyImage(allocator, m_depth_image.m_image, m_depth_image.m_allocation);
     });
 }
 
@@ -372,10 +311,11 @@ void ViEngine::init_default_renderpass()
     render_pass_info.dependencyCount = 2;
     render_pass_info.pDependencies = &dependencies[0];
 
-    VK_CHECK(vkCreateRenderPass(m_device, &render_pass_info, nullptr, &m_render_pass));
+    const auto device = vi::GraphicsContext::get_device();
+    VK_CHECK(vkCreateRenderPass(device, &render_pass_info, nullptr, &m_render_pass));
 
-    vi::DeletionQueue::push_function([this] {
-        vkDestroyRenderPass(m_device, m_render_pass, nullptr);
+    vi::DeletionQueue::push_function([this, device] {
+        vkDestroyRenderPass(device, m_render_pass, nullptr);
     });
 }
 
@@ -395,46 +335,49 @@ void ViEngine::init_framebuffers()
 
         fb_info.pAttachments = attachments;
         fb_info.attachmentCount = 2;
-        VK_CHECK(vkCreateFramebuffer(m_device, &fb_info, nullptr, &m_framebuffers[i]));
+        const auto device = vi::GraphicsContext::get_device();
+        VK_CHECK(vkCreateFramebuffer(device, &fb_info, nullptr, &m_framebuffers[i]));
 
         vi::DeletionQueue::push_function([=, this] {
-            vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
-            vkDestroyImageView(m_device, m_swapchain_image_views[i], nullptr);
+            vkDestroyFramebuffer(device, m_framebuffers[i], nullptr);
+            vkDestroyImageView(device, m_swapchain_image_views[i], nullptr);
         });
     }
 }
 
 void ViEngine::init_commands()
 {
+    const auto device = vi::GraphicsContext::get_device();
+    const auto graphics_queue_family = vi::GraphicsContext::get_graphics_queue_family();
     //create a command pool for commands submitted to the graphics queue.
     //we also want the pool to allow for resetting of individual command buffers
-    const auto command_pool_info = vkinit::command_pool_create_info(m_graphics_queue_family, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+    const auto command_pool_info = vkinit::command_pool_create_info(graphics_queue_family, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
     for (auto& [present_semaphore, render_semaphore, render_fence, command_pool, main_command_buffer, camera_buffer, global_descriptor, object_buffer, object_descriptor] : m_frames) {
-        VK_CHECK(vkCreateCommandPool(m_device, &command_pool_info, nullptr, &command_pool));
+        VK_CHECK(vkCreateCommandPool(device, &command_pool_info, nullptr, &command_pool));
 
         //allocate the default command buffer that we will use for rendering
         auto cmd_alloc_info = vkinit::command_buffer_allocate_info(command_pool, 1);
 
-        VK_CHECK(vkAllocateCommandBuffers(m_device, &cmd_alloc_info, &main_command_buffer));
+        VK_CHECK(vkAllocateCommandBuffers(device, &cmd_alloc_info, &main_command_buffer));
 
         vi::DeletionQueue::push_function([=, this] {
-            vkDestroyCommandPool(m_device, command_pool, nullptr);
+            vkDestroyCommandPool(device, command_pool, nullptr);
         });
     }
 
-    const auto upload_command_pool_info = vkinit::command_pool_create_info(m_graphics_queue_family);
+    const auto upload_command_pool_info = vkinit::command_pool_create_info(graphics_queue_family);
     //create pool for upload context
-    VK_CHECK(vkCreateCommandPool(m_device, &upload_command_pool_info, nullptr, &m_upload_context.m_command_pool));
+    VK_CHECK(vkCreateCommandPool(device, &upload_command_pool_info, nullptr, &m_upload_context.m_command_pool));
 
-    vi::DeletionQueue::push_function([this] {
-        vkDestroyCommandPool(m_device, m_upload_context.m_command_pool, nullptr);
+    vi::DeletionQueue::push_function([this, device] {
+        vkDestroyCommandPool(device, m_upload_context.m_command_pool, nullptr);
     });
 
     //allocate the default command buffer that we will use for rendering
     const auto cmd_alloc_info = vkinit::command_buffer_allocate_info(m_upload_context.m_command_pool, 1);
 
-    VK_CHECK(vkAllocateCommandBuffers(m_device, &cmd_alloc_info, &m_upload_context.m_command_buffer));
+    VK_CHECK(vkAllocateCommandBuffers(device, &cmd_alloc_info, &m_upload_context.m_command_buffer));
 }
 
 void ViEngine::init_sync_structures()
@@ -447,36 +390,38 @@ void ViEngine::init_sync_structures()
 
     const auto semaphore_create_info = vkinit::semaphore_create_info();
 
+    const auto device = vi::GraphicsContext::get_device();
     for (auto& [present_semaphore, render_semaphore, render_fence, command_pool, main_command_buffer, camera_buffer, global_descriptor, object_buffer, object_descriptor] : m_frames) {
-        VK_CHECK(vkCreateFence(m_device, &fence_create_info, nullptr, &render_fence));
+        VK_CHECK(vkCreateFence(device, &fence_create_info, nullptr, &render_fence));
 
         //enqueue the destruction of the fence
         vi::DeletionQueue::push_function([=, this] {
-            vkDestroyFence(m_device, render_fence, nullptr);
+            vkDestroyFence(device, render_fence, nullptr);
         });
 
-        VK_CHECK(vkCreateSemaphore(m_device, &semaphore_create_info, nullptr, &present_semaphore));
-        VK_CHECK(vkCreateSemaphore(m_device, &semaphore_create_info, nullptr, &render_semaphore));
+        VK_CHECK(vkCreateSemaphore(device, &semaphore_create_info, nullptr, &present_semaphore));
+        VK_CHECK(vkCreateSemaphore(device, &semaphore_create_info, nullptr, &render_semaphore));
 
         //enqueue the destruction of semaphores
         vi::DeletionQueue::push_function([=, this] {
-            vkDestroySemaphore(m_device, present_semaphore, nullptr);
-            vkDestroySemaphore(m_device, render_semaphore, nullptr);
+            vkDestroySemaphore(device, present_semaphore, nullptr);
+            vkDestroySemaphore(device, render_semaphore, nullptr);
         });
     }
 
     const auto upload_fence_create_info = vkinit::fence_create_info();
 
-    VK_CHECK(vkCreateFence(m_device, &upload_fence_create_info, nullptr, &m_upload_context.m_upload_fence));
+    VK_CHECK(vkCreateFence(device, &upload_fence_create_info, nullptr, &m_upload_context.m_upload_fence));
     vi::DeletionQueue::push_function([=, this] {
-        vkDestroyFence(m_device, m_upload_context.m_upload_fence, nullptr);
+        vkDestroyFence(device, m_upload_context.m_upload_fence, nullptr);
     });
 }
 
 void ViEngine::init_pipelines()
 {
-    auto colored_mesh_shader = std::make_unique<vi::Shader>(m_device, R"(D:\projekty\Viking\Shaders\colored_mesh.shader)");
-    auto textured_mesh_shader = std::make_unique<vi::Shader>(m_device, R"(D:\projekty\Viking\Shaders\textured_mesh.shader)");
+    const auto device = vi::GraphicsContext::get_device();
+    auto colored_mesh_shader = std::make_unique<vi::Shader>(device, R"(D:\projekty\Viking\Shaders\colored_mesh.shader)");
+    auto textured_mesh_shader = std::make_unique<vi::Shader>(device, R"(D:\projekty\Viking\Shaders\textured_mesh.shader)");
 
     //build the stage-create-info for both vertex and fragment stages. This lets the pipeline know the shader modules per stage
     PipelineBuilder pipeline_builder;
@@ -506,7 +451,7 @@ void ViEngine::init_pipelines()
     mesh_pipeline_layout_info.pSetLayouts = set_layouts;
 
     VkPipelineLayout mesh_pipeline_layout{nullptr};
-    VK_CHECK(vkCreatePipelineLayout(m_device, &mesh_pipeline_layout_info, nullptr, &mesh_pipeline_layout));
+    VK_CHECK(vkCreatePipelineLayout(device, &mesh_pipeline_layout_info, nullptr, &mesh_pipeline_layout));
 
     //we start from the normal mesh layout
     VkPipelineLayoutCreateInfo textured_pipeline_layout_info = mesh_pipeline_layout_info;
@@ -517,7 +462,7 @@ void ViEngine::init_pipelines()
     textured_pipeline_layout_info.pSetLayouts = textured_set_layouts;
 
     VkPipelineLayout textured_pipeline_layout;
-    VK_CHECK(vkCreatePipelineLayout(m_device, &textured_pipeline_layout_info, nullptr, &textured_pipeline_layout));
+    VK_CHECK(vkCreatePipelineLayout(device, &textured_pipeline_layout_info, nullptr, &textured_pipeline_layout));
 
     //hook the push constants layout
     pipeline_builder.m_pipeline_layout = mesh_pipeline_layout;
@@ -564,7 +509,7 @@ void ViEngine::init_pipelines()
     pipeline_builder.m_vertex_input_info.vertexBindingDescriptionCount = bindings.size();
 
     //build the mesh triangle pipeline
-    auto mesh_pipeline = pipeline_builder.build_pipeline(m_device, m_render_pass);
+    auto mesh_pipeline = pipeline_builder.build_pipeline(device, m_render_pass);
 
     create_material(mesh_pipeline, mesh_pipeline_layout, "defaultmesh");
 
@@ -577,15 +522,15 @@ void ViEngine::init_pipelines()
         vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, textured_mesh_shader->get_shader_module(vi::ShaderType::FRAGMENT)));
 
     pipeline_builder.m_pipeline_layout = textured_pipeline_layout;
-    VkPipeline texPipeline = pipeline_builder.build_pipeline(m_device, m_render_pass);
+    VkPipeline texPipeline = pipeline_builder.build_pipeline(device, m_render_pass);
     create_material(texPipeline, textured_pipeline_layout, "texturedmesh");
 
     vi::DeletionQueue::push_function([=, this] {
-        vkDestroyPipeline(m_device, mesh_pipeline, nullptr);
-        vkDestroyPipeline(m_device, texPipeline, nullptr);
+        vkDestroyPipeline(device, mesh_pipeline, nullptr);
+        vkDestroyPipeline(device, texPipeline, nullptr);
 
-        vkDestroyPipelineLayout(m_device, mesh_pipeline_layout, nullptr);
-        vkDestroyPipelineLayout(m_device, textured_pipeline_layout, nullptr);
+        vkDestroyPipelineLayout(device, mesh_pipeline_layout, nullptr);
+        vkDestroyPipelineLayout(device, textured_pipeline_layout, nullptr);
     });
 }
 
@@ -680,14 +625,15 @@ void ViEngine::load_meshes()
 void ViEngine::load_images()
 {
     Texture lostEmpire;
+    const auto device = vi::GraphicsContext::get_device();
 
     vkutil::load_image_from_file(*this, R"(D:\projekty\Viking\Assets\lost_empire-RGBA.png)", lostEmpire.m_image);
 
     const auto imageinfo = vkinit::imageview_create_info(VK_FORMAT_R8G8B8A8_SRGB, lostEmpire.m_image.m_image, VK_IMAGE_ASPECT_COLOR_BIT);
-    vkCreateImageView(m_device, &imageinfo, nullptr, &lostEmpire.m_image_view);
+    vkCreateImageView(device, &imageinfo, nullptr, &lostEmpire.m_image_view);
 
     vi::DeletionQueue::push_function([=, this] {
-        vkDestroyImageView(m_device, lostEmpire.m_image_view, nullptr);
+        vkDestroyImageView(device, lostEmpire.m_image_view, nullptr);
     });
 
     m_loaded_textures["empire_diffuse"] = lostEmpire;
@@ -712,18 +658,19 @@ void ViEngine::upload_mesh(Mesh& p_mesh) const {
     AllocatedBuffer stagingBuffer;
 
     //allocate the buffer
-    VK_CHECK(vmaCreateBuffer(m_allocator, &stagingBufferInfo, &vmaallocInfo,
+    const auto allocator = vi::GraphicsContext::get_allocator();
+    VK_CHECK(vmaCreateBuffer(allocator, &stagingBufferInfo, &vmaallocInfo,
                              &stagingBuffer.m_buffer,
                              &stagingBuffer.m_allocation,
                              nullptr));
 
     //copy vertex data
     void* data;
-    vmaMapMemory(m_allocator, stagingBuffer.m_allocation, &data);
+    vmaMapMemory(allocator, stagingBuffer.m_allocation, &data);
 
     memcpy(data, p_mesh.vertices.data(), p_mesh.vertices.size() * sizeof(Vertex));
 
-    vmaUnmapMemory(m_allocator, stagingBuffer.m_allocation);
+    vmaUnmapMemory(allocator, stagingBuffer.m_allocation);
 
 
     //allocate vertex buffer
@@ -739,13 +686,13 @@ void ViEngine::upload_mesh(Mesh& p_mesh) const {
     vmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
     //allocate the buffer
-    VK_CHECK(vmaCreateBuffer(m_allocator, &vertexBufferInfo, &vmaallocInfo,
+    VK_CHECK(vmaCreateBuffer(allocator, &vertexBufferInfo, &vmaallocInfo,
                              &p_mesh.vertexBuffer.m_buffer,
                              &p_mesh.vertexBuffer.m_allocation,
                              nullptr));
     //add the destruction of triangle mesh buffer to the deletion queue
     vi::DeletionQueue::push_function([=, this] {
-        vmaDestroyBuffer(m_allocator, p_mesh.vertexBuffer.m_buffer, p_mesh.vertexBuffer.m_allocation);
+        vmaDestroyBuffer(allocator, p_mesh.vertexBuffer.m_buffer, p_mesh.vertexBuffer.m_allocation);
     });
 
     immediate_submit([=](const VkCommandBuffer cmd) {
@@ -756,7 +703,7 @@ void ViEngine::upload_mesh(Mesh& p_mesh) const {
         vkCmdCopyBuffer(cmd, stagingBuffer.m_buffer, p_mesh.vertexBuffer.m_buffer, 1, & copy);
     });
 
-    vmaDestroyBuffer(m_allocator, stagingBuffer.m_buffer, stagingBuffer.m_allocation);
+    vmaDestroyBuffer(allocator, stagingBuffer.m_buffer, stagingBuffer.m_allocation);
 }
 
 
@@ -809,18 +756,19 @@ void ViEngine::draw_objects(const VkCommandBuffer p_cmd, const RenderObject* p_f
     camData.m_view_proj = projection * view;
 
     void* data;
-    vmaMapMemory(m_allocator, get_current_frame().m_camera_buffer.m_allocation, &data);
+    const auto allocator = vi::GraphicsContext::get_allocator();
+    vmaMapMemory(allocator, get_current_frame().m_camera_buffer.m_allocation, &data);
 
     memcpy(data, &camData, sizeof(GPUCameraData));
 
-    vmaUnmapMemory(m_allocator, get_current_frame().m_camera_buffer.m_allocation);
+    vmaUnmapMemory(allocator, get_current_frame().m_camera_buffer.m_allocation);
 
     const auto framed = static_cast<float>(m_frame_number) / 120.f;
 
     m_scene_parameters.m_ambient_color = { sin(framed),0,cos(framed),1 };
 
     char* sceneData;
-    vmaMapMemory(m_allocator, m_scene_parameter_buffer.m_allocation , reinterpret_cast<void**>(&sceneData));
+    vmaMapMemory(allocator, m_scene_parameter_buffer.m_allocation , reinterpret_cast<void**>(&sceneData));
 
     const auto frameIndex = m_frame_number % FRAME_OVERLAP;
 
@@ -828,11 +776,11 @@ void ViEngine::draw_objects(const VkCommandBuffer p_cmd, const RenderObject* p_f
 
     memcpy(sceneData, &m_scene_parameters, sizeof(GPUSceneData));
 
-    vmaUnmapMemory(m_allocator, m_scene_parameter_buffer.m_allocation);
+    vmaUnmapMemory(allocator, m_scene_parameter_buffer.m_allocation);
 
 
     void* objectData;
-    vmaMapMemory(m_allocator, get_current_frame().m_object_buffer.m_allocation, &objectData);
+    vmaMapMemory(allocator, get_current_frame().m_object_buffer.m_allocation, &objectData);
 
     auto objectSSBO = static_cast<GPUObjectData*>(objectData);
 
@@ -842,7 +790,7 @@ void ViEngine::draw_objects(const VkCommandBuffer p_cmd, const RenderObject* p_f
         objectSSBO[i].m_model_matrix = object.m_transform_matrix;
     }
 
-    vmaUnmapMemory(m_allocator, get_current_frame().m_object_buffer.m_allocation);
+    vmaUnmapMemory(allocator, get_current_frame().m_object_buffer.m_allocation);
 
     const Mesh* lastMesh = nullptr;
     const Material* lastMaterial = nullptr;
@@ -894,6 +842,7 @@ void ViEngine::draw_objects(const VkCommandBuffer p_cmd, const RenderObject* p_f
 
 void ViEngine::init_scene()
 {
+    const auto device = vi::GraphicsContext::get_device();
     RenderObject monkey;
     monkey.m_mesh = get_mesh("monkey");
     monkey.m_material = get_material("defaultmesh");
@@ -931,15 +880,15 @@ void ViEngine::init_scene()
     allocInfo.descriptorSetCount = 1;
     allocInfo.pSetLayouts = &m_single_texture_set_layout;
 
-    vkAllocateDescriptorSets(m_device, &allocInfo, &texturedMat->m_texture_set);
+    vkAllocateDescriptorSets(device, &allocInfo, &texturedMat->m_texture_set);
 
     const auto samplerInfo = vkinit::sampler_create_info(VK_FILTER_NEAREST);
 
     VkSampler blockySampler;
-    vkCreateSampler(m_device, &samplerInfo, nullptr, &blockySampler);
+    vkCreateSampler(device, &samplerInfo, nullptr, &blockySampler);
 
     vi::DeletionQueue::push_function([=, this] {
-        vkDestroySampler(m_device, blockySampler, nullptr);
+        vkDestroySampler(device, blockySampler, nullptr);
     });
 
     VkDescriptorImageInfo imageBufferInfo;
@@ -949,7 +898,7 @@ void ViEngine::init_scene()
 
     const auto texture1 = vkinit::write_descriptor_image(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, texturedMat->m_texture_set, &imageBufferInfo, 0);
 
-    vkUpdateDescriptorSets(m_device, 1, &texture1, 0, nullptr);
+    vkUpdateDescriptorSets(device, 1, &texture1, 0, nullptr);
 }
 
 AllocatedBuffer ViEngine::create_buffer(const size_t p_alloc_size, const VkBufferUsageFlags p_usage, const VmaMemoryUsage p_memory_usage) const {
@@ -967,7 +916,8 @@ AllocatedBuffer ViEngine::create_buffer(const size_t p_alloc_size, const VkBuffe
     AllocatedBuffer new_buffer{};
 
     //allocate the buffer
-    VK_CHECK(vmaCreateBuffer(m_allocator, &bufferInfo, &vma_alloc_info,
+    const auto allocator = vi::GraphicsContext::get_allocator();
+    VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &vma_alloc_info,
                              &new_buffer.m_buffer,
                              &new_buffer.m_allocation,
                              nullptr));
@@ -977,7 +927,8 @@ AllocatedBuffer ViEngine::create_buffer(const size_t p_alloc_size, const VkBuffe
 
 size_t ViEngine::pad_uniform_buffer_size(const size_t p_original_size) const {
     // Calculate required alignment based on minimum device offset alignment
-    const auto min_ubo_alignment = m_gpu_properties.limits.minUniformBufferOffsetAlignment;
+    const auto gpu_properties = vi::GraphicsContext::get_gpu_properties();
+    const auto min_ubo_alignment = gpu_properties.limits.minUniformBufferOffsetAlignment;
     auto aligned_size = p_original_size;
     if (min_ubo_alignment > 0) {
         aligned_size = (aligned_size + min_ubo_alignment - 1) & ~(min_ubo_alignment - 1);
@@ -987,6 +938,7 @@ size_t ViEngine::pad_uniform_buffer_size(const size_t p_original_size) const {
 
 
 void ViEngine::immediate_submit(std::function<void(VkCommandBuffer p_cmd)>&& p_function) const {
+    const auto device = vi::GraphicsContext::get_device();
     const auto cmd =m_upload_context.m_command_buffer;
     //Begin the command buffer recording. We will use this command buffer exactly once, so we want to let vulkan know that
     const auto cmd_begin_info = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
@@ -1001,17 +953,18 @@ void ViEngine::immediate_submit(std::function<void(VkCommandBuffer p_cmd)>&& p_f
 
     //submit command buffer to the queue and execute it.
     // _renderFence will now block until the graphic commands finish execution
-    VK_CHECK(vkQueueSubmit(m_graphics_queue, 1, &submit, m_upload_context.m_upload_fence));
+    const auto graphics_queue = vi::GraphicsContext::get_graphics_queue();
+    VK_CHECK(vkQueueSubmit(graphics_queue, 1, &submit, m_upload_context.m_upload_fence));
 
-    vkWaitForFences(m_device, 1, &m_upload_context.m_upload_fence, true, 9999999999);
-    vkResetFences(m_device, 1, &m_upload_context.m_upload_fence);
+    vkWaitForFences(device, 1, &m_upload_context.m_upload_fence, true, 9999999999);
+    vkResetFences(device, 1, &m_upload_context.m_upload_fence);
 
-    vkResetCommandPool(m_device, m_upload_context.m_command_pool, 0);
+    vkResetCommandPool(device, m_upload_context.m_command_pool, 0);
 }
 
 void ViEngine::init_descriptors()
 {
-
+    const auto device = vi::GraphicsContext::get_device();
     //create a descriptor pool that will hold 10 uniform buffers
     std::vector<VkDescriptorPoolSize> sizes =
             {
@@ -1028,7 +981,7 @@ void ViEngine::init_descriptors()
     pool_info.poolSizeCount = static_cast<uint32_t>(sizes.size());
     pool_info.pPoolSizes = sizes.data();
 
-    vkCreateDescriptorPool(m_device, &pool_info, nullptr, &m_descriptor_pool);
+    vkCreateDescriptorPool(device, &pool_info, nullptr, &m_descriptor_pool);
 
     auto camera_bind = vkinit::descriptorset_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,VK_SHADER_STAGE_VERTEX_BIT,0);
     auto scene_bind = vkinit::descriptorset_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 1);
@@ -1042,7 +995,7 @@ void ViEngine::init_descriptors()
     set_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     set_info.pBindings = bindings;
 
-    vkCreateDescriptorSetLayout(m_device, &set_info, nullptr, &m_global_set_layout);
+    vkCreateDescriptorSetLayout(device, &set_info, nullptr, &m_global_set_layout);
 
     auto object_bind = vkinit::descriptorset_layout_binding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
 
@@ -1053,7 +1006,7 @@ void ViEngine::init_descriptors()
     set2_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     set2_info.pBindings = &object_bind;
 
-    vkCreateDescriptorSetLayout(m_device, &set2_info, nullptr, &m_object_set_layout);
+    vkCreateDescriptorSetLayout(device, &set2_info, nullptr, &m_object_set_layout);
 
     auto texture_bind = vkinit::descriptorset_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0);
 
@@ -1064,7 +1017,7 @@ void ViEngine::init_descriptors()
     set3_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     set3_info.pBindings = &texture_bind;
 
-    vkCreateDescriptorSetLayout(m_device, &set3_info, nullptr, &m_single_texture_set_layout);
+    vkCreateDescriptorSetLayout(device, &set3_info, nullptr, &m_single_texture_set_layout);
 
     const auto scene_param_buffer_size = FRAME_OVERLAP * pad_uniform_buffer_size(sizeof(GPUSceneData));
 
@@ -1083,7 +1036,7 @@ void ViEngine::init_descriptors()
         alloc_info.descriptorSetCount = 1;
         alloc_info.pSetLayouts = &m_global_set_layout;
 
-        vkAllocateDescriptorSets(m_device, &alloc_info, &globalDescriptor);
+        vkAllocateDescriptorSets(device, &alloc_info, &globalDescriptor);
 
         VkDescriptorSetAllocateInfo object_set_alloc{};
         object_set_alloc.pNext = nullptr;
@@ -1092,7 +1045,7 @@ void ViEngine::init_descriptors()
         object_set_alloc.descriptorSetCount = 1;
         object_set_alloc.pSetLayouts = &m_object_set_layout;
 
-        vkAllocateDescriptorSets(m_device, &object_set_alloc, &objectDescriptor);
+        vkAllocateDescriptorSets(device, &object_set_alloc, &objectDescriptor);
 
         VkDescriptorBufferInfo camera_info{};
         camera_info.buffer = cameraBuffer.m_buffer;
@@ -1115,21 +1068,22 @@ void ViEngine::init_descriptors()
         auto object_write = vkinit::write_descriptor_buffer(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, objectDescriptor, &object_buffer_info, 0);
         VkWriteDescriptorSet set_writes[] = { camera_write,scene_write,object_write };
 
-        vkUpdateDescriptorSets(m_device, 3, set_writes, 0, nullptr);
+        vkUpdateDescriptorSets(device, 3, set_writes, 0, nullptr);
     }
 
-    vi::DeletionQueue::push_function([this] {
-        vmaDestroyBuffer(m_allocator, m_scene_parameter_buffer.m_buffer, m_scene_parameter_buffer.m_allocation);
+    vi::DeletionQueue::push_function([this, device] {
+        const auto allocator = vi::GraphicsContext::get_allocator();
+        vmaDestroyBuffer(allocator, m_scene_parameter_buffer.m_buffer, m_scene_parameter_buffer.m_allocation);
 
-        vkDestroyDescriptorSetLayout(m_device, m_object_set_layout, nullptr);
-        vkDestroyDescriptorSetLayout(m_device, m_global_set_layout, nullptr);
-        vkDestroyDescriptorSetLayout(m_device, m_single_texture_set_layout, nullptr);
+        vkDestroyDescriptorSetLayout(device, m_object_set_layout, nullptr);
+        vkDestroyDescriptorSetLayout(device, m_global_set_layout, nullptr);
+        vkDestroyDescriptorSetLayout(device, m_single_texture_set_layout, nullptr);
 
-        vkDestroyDescriptorPool(m_device, m_descriptor_pool, nullptr);
+        vkDestroyDescriptorPool(device, m_descriptor_pool, nullptr);
 
-        std::ranges::for_each(m_frames, [this](const FrameData& p_frame) {
-            vmaDestroyBuffer(m_allocator, p_frame.m_camera_buffer.m_buffer, p_frame.m_camera_buffer.m_allocation);
-            vmaDestroyBuffer(m_allocator, p_frame.m_object_buffer.m_buffer, p_frame.m_object_buffer.m_allocation);
+        std::ranges::for_each(m_frames, [this, allocator](const FrameData& p_frame) {
+            vmaDestroyBuffer(allocator, p_frame.m_camera_buffer.m_buffer, p_frame.m_camera_buffer.m_allocation);
+            vmaDestroyBuffer(allocator, p_frame.m_object_buffer.m_buffer, p_frame.m_object_buffer.m_allocation);
         });
     });
 }

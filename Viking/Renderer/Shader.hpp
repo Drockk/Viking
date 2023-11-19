@@ -1,5 +1,4 @@
-#ifndef VIKING_SHADER_HPP
-#define VIKING_SHADER_HPP
+#pragma once
 
 #include <filesystem>
 #include <unordered_map>
@@ -53,5 +52,3 @@ namespace vi
         VkShaderModule m_shader{};
     };
 } // vi
-
-#endif //VIKING_SHADER_HPP

@@ -100,29 +100,16 @@ public:
 
     VkExtent2D m_window_extent{ 1600 , 900 };
 
-    VkInstance m_instance;
-    VkDebugUtilsMessengerEXT m_debug_messenger;
-    VkPhysicalDevice m_chosen_gpu;
-    VkDevice m_device;
-
-    VkPhysicalDeviceProperties m_gpu_properties;
-
     FrameData m_frames[FRAME_OVERLAP];
-
-    VkQueue m_graphics_queue;
-    uint32_t m_graphics_queue_family;
 
     VkRenderPass m_render_pass;
 
-    VkSurfaceKHR m_surface;
     VkSwapchainKHR m_swapchain;
     VkFormat m_swachain_image_format;
 
     std::vector<VkFramebuffer> m_framebuffers;
     std::vector<VkImage> m_swapchain_images;
     std::vector<VkImageView> m_swapchain_image_views;
-
-    VmaAllocator m_allocator; //vma lib allocator
 
     //depth resources
     VkImageView m_depth_image_view;
@@ -198,7 +185,6 @@ private:
     void init_scene();
     void init_swapchain();
     void init_sync_structures();
-    void init_vulkan();
 
     //loads a shader module from a spir-v file. Returns false if it errors
     void load_meshes();

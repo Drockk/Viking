@@ -14,6 +14,8 @@ add_executable(Viking
         Core/Log.hpp
         Core/Window.cpp
         Core/Window.hpp
+        Renderer/GraphicsContext.cpp
+        Renderer/GraphicsContext.hpp
         Renderer/Shader.cpp
         Renderer/Shader.hpp
         main.cpp

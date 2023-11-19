@@ -1,9 +1,7 @@
-//
-// Created by batzi on 28.10.2023.
-//
 #include "vk_textures.hpp"
 #include "Core/DeletionQueue.hpp"
 #include "Core/Log.hpp"
+#include "Renderer/GraphicsContext.hpp"
 #include "vk_initializers.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -33,11 +31,12 @@ bool vkutil::load_image_from_file(ViEngine& engine, const char* file, AllocatedI
 
     //copy data to buffer
     void* data;
-    vmaMapMemory(engine.m_allocator, stagingBuffer.m_allocation, &data);
+    auto allocator = vi::GraphicsContext::get_allocator();
+    vmaMapMemory(allocator, stagingBuffer.m_allocation, &data);
 
     memcpy(data, pixel_ptr, static_cast<size_t>(imageSize));
 
-    vmaUnmapMemory(engine.m_allocator, stagingBuffer.m_allocation);
+    vmaUnmapMemory(allocator, stagingBuffer.m_allocation);
     //we no longer need the loaded data, so we can free the pixels as they are now in the staging buffer
     stbi_image_free(pixels);
 
@@ -54,7 +53,7 @@ bool vkutil::load_image_from_file(ViEngine& engine, const char* file, AllocatedI
     dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
     //allocate and create the image
-    vmaCreateImage(engine.m_allocator, &dimg_info, &dimg_allocinfo, &newImage.m_image, &newImage.m_allocation, nullptr);
+    vmaCreateImage(allocator, &dimg_info, &dimg_allocinfo, &newImage.m_image, &newImage.m_allocation, nullptr);
 
     engine.immediate_submit([&](VkCommandBuffer cmd) {
         VkImageSubresourceRange range;
@@ -104,11 +103,11 @@ bool vkutil::load_image_from_file(ViEngine& engine, const char* file, AllocatedI
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toReadable);
     });
 
-    vi::DeletionQueue::push_function([=, &engine] {
-        vmaDestroyImage(engine.m_allocator, newImage.m_image, newImage.m_allocation);
+    vi::DeletionQueue::push_function([=] {
+        vmaDestroyImage(allocator, newImage.m_image, newImage.m_allocation);
     });
 
-    vmaDestroyBuffer(engine.m_allocator, stagingBuffer.m_buffer, stagingBuffer.m_allocation);
+    vmaDestroyBuffer(allocator, stagingBuffer.m_buffer, stagingBuffer.m_allocation);
 
     VI_CORE_TRACE("Loaded texture: {}", file);
 
