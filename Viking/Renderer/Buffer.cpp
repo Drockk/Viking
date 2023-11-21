@@ -27,7 +27,7 @@ namespace vi
 
     Buffer::~Buffer()
     {
-        vmaDestroyBuffer();
+        //vmaDestroyBuffer();
     }
 
     VkBufferUsageFlags Buffer::usage_to_vulkan_usage(Usage p_usage)
