@@ -16,4 +16,6 @@ file(DOWNLOAD
 
 include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
 
+set(DEPENDENCIES_PATH "${CMAKE_SOURCE_DIR}/dependencies")
+
 add_subdirectory ("Viking")

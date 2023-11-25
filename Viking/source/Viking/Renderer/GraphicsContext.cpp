@@ -4,6 +4,8 @@
 
 #include <VkBootstrap.h>
 
+#include "Debug/Profiler.hpp"
+
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
 
@@ -13,6 +15,7 @@ namespace vi
 {
     void GraphicsContext::init(const std::string& p_app_name, const std::unique_ptr<Window>& p_window)
     {
+        PROFILER_EVENT();
         vkb::InstanceBuilder builder;
 
         // Make the vulkan instance, with basic debug features
@@ -80,10 +83,12 @@ namespace vi
         vmaCreateAllocator(&allocator_info, &m_allocator);
 
         vkGetPhysicalDeviceProperties(m_chosen_gpu, &m_gpu_properties);
+        PROFILER_GPU_INIT_VULKAN(&m_device, &m_chosen_gpu, &m_graphics_queue, &m_graphics_queue_family);
     }
 
     void GraphicsContext::cleanup()
     {
+        PROFILER_EVENT();
         // Make sure the gpu has stopped doing its things
         wait_for_device();
 
@@ -97,6 +102,7 @@ namespace vi
 
     void GraphicsContext::wait_for_device()
     {
+        PROFILER_EVENT();
         vkDeviceWaitIdle(m_device);
     }
 }

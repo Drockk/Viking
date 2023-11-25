@@ -11,6 +11,8 @@
 
 #include "Core/Log.hpp"
 
+#include "Debug/Profiler.hpp"
+
 #include <iostream>
 
 //We want to immediately abort when there is an error.
@@ -25,12 +27,12 @@ using namespace std;
         }                                                               \
     } while (0)
 
-
 void ViEngine::init()
 {
+    PROFILER_EVENT();
     vi::Log::init();
 
-    m_window = std::make_unique<vi::Window>("Vi Engine", std::pair{m_window_extent.width, m_window_extent.height});
+    m_window = std::make_unique<vi::Window>("Viking Engine", std::pair{m_window_extent.width, m_window_extent.height});
 
     vi::GraphicsContext::init("Viking Engine", m_window);
 
@@ -49,7 +51,9 @@ void ViEngine::init()
     //everything went fine
     m_is_initialized = true;
 }
+
 void ViEngine::cleanup() const {
+    PROFILER_EVENT();
     if (m_is_initialized) {
         vi::GraphicsContext::wait_for_device();
 
@@ -61,6 +65,7 @@ void ViEngine::cleanup() const {
 
 void ViEngine::draw()
 {
+    PROFILER_EVENT();
     const auto device = vi::GraphicsContext::get_device();
     //Wait until the gpu has finished rendering the last frame. Timeout of 1 second
     VK_CHECK(vkWaitForFences(device, 1, &get_current_frame().m_render_fence, true, 1000000000));
@@ -81,6 +86,7 @@ void ViEngine::draw()
     const auto cmd_begin_info = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmd_begin_info));
+    PROFILER_GPU_CONTEXT(cmd);
 
     //make a clear-color from frame number. This will flash with a 120 frame period.
     VkClearValue clear_value;
@@ -135,6 +141,8 @@ void ViEngine::draw()
     // this will put the image we just rendered to into the visible window.
     // we want to wait on the _renderSemaphore for that,
     // as its necessary that drawing commands have finished before the image is displayed to the user
+    PROFILER_GPU_FLIP(m_swapchain);
+    PROFILER_CATEGORY("Present", Optick::Category::Wait);
     VkPresentInfoKHR present_info = vkinit::present_info();
 
     present_info.pSwapchains = &m_swapchain;
@@ -153,7 +161,9 @@ void ViEngine::draw()
 
 void ViEngine::run()
 {
+    PROFILER_EVENT();
     while (!m_window->should_close()) {
+        PROFILER_FRAME("Main Loop");
         m_window->on_update();
         draw();
     }
@@ -172,6 +182,7 @@ FrameData& ViEngine::get_last_frame()
 
 void ViEngine::init_swapchain()
 {
+    PROFILER_EVENT();
     const auto device = vi::GraphicsContext::get_device();
     const auto chosen_gpu = vi::GraphicsContext::get_chosen_gpu();
     const auto surface = vi::GraphicsContext::get_surface();
@@ -232,6 +243,7 @@ void ViEngine::init_swapchain()
 
 void ViEngine::init_default_renderpass()
 {
+    PROFILER_EVENT();
     //we define an attachment description for our main color image
     //the attachment is loaded as "clear" when renderpass start
     //the attachment is stored when renderpass ends
@@ -321,6 +333,7 @@ void ViEngine::init_default_renderpass()
 
 void ViEngine::init_framebuffers()
 {
+    PROFILER_EVENT();
     //create the framebuffers for the swapchain images. This will connect the render-pass to the images for rendering
     auto fb_info = vkinit::framebuffer_create_info(m_render_pass, m_window_extent);
 
@@ -347,6 +360,7 @@ void ViEngine::init_framebuffers()
 
 void ViEngine::init_commands()
 {
+    PROFILER_EVENT();
     const auto device = vi::GraphicsContext::get_device();
     const auto graphics_queue_family = vi::GraphicsContext::get_graphics_queue_family();
     //create a command pool for commands submitted to the graphics queue.
@@ -382,6 +396,7 @@ void ViEngine::init_commands()
 
 void ViEngine::init_sync_structures()
 {
+    PROFILER_EVENT();
     //create synchronization structures
     //one fence to control when the gpu has finished rendering the frame,
     //and 2 semaphores to synchronize rendering with swapchain
@@ -419,6 +434,7 @@ void ViEngine::init_sync_structures()
 
 void ViEngine::init_pipelines()
 {
+    PROFILER_EVENT();
     const auto device = vi::GraphicsContext::get_device();
     auto colored_mesh_shader = std::make_unique<vi::Shader>(device, R"(D:\projekty\Viking\Shaders\colored_mesh.shader)");
     auto textured_mesh_shader = std::make_unique<vi::Shader>(device, R"(D:\projekty\Viking\Shaders\textured_mesh.shader)");
@@ -535,6 +551,7 @@ void ViEngine::init_pipelines()
 }
 
 VkPipeline PipelineBuilder::build_pipeline(const VkDevice p_device, const VkRenderPass p_pass) const {
+    PROFILER_EVENT();
     //make viewport state from our stored viewport and scissor.
     //at the moment we wont support multiple viewports or scissors
     VkPipelineViewportStateCreateInfo viewportState{};
@@ -590,6 +607,7 @@ VkPipeline PipelineBuilder::build_pipeline(const VkDevice p_device, const VkRend
 
 void ViEngine::load_meshes()
 {
+    PROFILER_EVENT();
     Mesh triMesh{};
     //make the array 3 vertices long
     triMesh.vertices.resize(3);
@@ -624,6 +642,7 @@ void ViEngine::load_meshes()
 
 void ViEngine::load_images()
 {
+    PROFILER_EVENT();
     Texture lostEmpire;
     const auto device = vi::GraphicsContext::get_device();
 
@@ -640,6 +659,7 @@ void ViEngine::load_images()
 }
 
 void ViEngine::upload_mesh(Mesh& p_mesh) const {
+    PROFILER_EVENT();
     const auto bufferSize = p_mesh.vertices.size() * sizeof(Vertex);
     //allocate vertex buffer
     VkBufferCreateInfo stagingBufferInfo{};
@@ -706,9 +726,9 @@ void ViEngine::upload_mesh(Mesh& p_mesh) const {
     vmaDestroyBuffer(allocator, stagingBuffer.m_buffer, stagingBuffer.m_allocation);
 }
 
-
 Material* ViEngine::create_material(const VkPipeline p_pipeline, const VkPipelineLayout p_layout, const std::string& p_name)
 {
+    PROFILER_EVENT();
     Material mat;
     mat.m_pipeline = p_pipeline;
     mat.m_pipeline_layout = p_layout;
@@ -718,6 +738,7 @@ Material* ViEngine::create_material(const VkPipeline p_pipeline, const VkPipelin
 
 Material* ViEngine::get_material(const std::string& p_name)
 {
+    PROFILER_EVENT();
     //search for the object, and return nullpointer if not found
     const auto it = m_materials.find(p_name);
     if (it == m_materials.end()) {
@@ -730,6 +751,7 @@ Material* ViEngine::get_material(const std::string& p_name)
 
 Mesh* ViEngine::get_mesh(const std::string& p_name)
 {
+    PROFILER_EVENT();
     const auto it = m_meshes.find(p_name);
     if (it == m_meshes.end()) {
         return nullptr;
@@ -741,6 +763,7 @@ Mesh* ViEngine::get_mesh(const std::string& p_name)
 
 void ViEngine::draw_objects(const VkCommandBuffer p_cmd, const RenderObject* p_first, const int p_count)
 {
+    PROFILER_EVENT();
     //make a model view matrix for rendering the object
     //camera view
     constexpr glm::vec3 camPos = { 0.f,-6.f,-10.f };
@@ -842,6 +865,7 @@ void ViEngine::draw_objects(const VkCommandBuffer p_cmd, const RenderObject* p_f
 
 void ViEngine::init_scene()
 {
+    PROFILER_EVENT();
     const auto device = vi::GraphicsContext::get_device();
     RenderObject monkey;
     monkey.m_mesh = get_mesh("monkey");
@@ -902,6 +926,7 @@ void ViEngine::init_scene()
 }
 
 AllocatedBuffer ViEngine::create_buffer(const size_t p_alloc_size, const VkBufferUsageFlags p_usage, const VmaMemoryUsage p_memory_usage) const {
+    PROFILER_EVENT();
     //allocate vertex buffer
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -926,6 +951,7 @@ AllocatedBuffer ViEngine::create_buffer(const size_t p_alloc_size, const VkBuffe
 }
 
 size_t ViEngine::pad_uniform_buffer_size(const size_t p_original_size) const {
+    PROFILER_EVENT();
     // Calculate required alignment based on minimum device offset alignment
     const auto gpu_properties = vi::GraphicsContext::get_gpu_properties();
     const auto min_ubo_alignment = gpu_properties.limits.minUniformBufferOffsetAlignment;
@@ -938,6 +964,7 @@ size_t ViEngine::pad_uniform_buffer_size(const size_t p_original_size) const {
 
 
 void ViEngine::immediate_submit(std::function<void(VkCommandBuffer p_cmd)>&& p_function) const {
+    PROFILER_EVENT();
     const auto device = vi::GraphicsContext::get_device();
     const auto cmd =m_upload_context.m_command_buffer;
     //Begin the command buffer recording. We will use this command buffer exactly once, so we want to let vulkan know that
@@ -964,6 +991,7 @@ void ViEngine::immediate_submit(std::function<void(VkCommandBuffer p_cmd)>&& p_f
 
 void ViEngine::init_descriptors()
 {
+    PROFILER_EVENT();
     const auto device = vi::GraphicsContext::get_device();
     //create a descriptor pool that will hold 10 uniform buffers
     std::vector<VkDescriptorPoolSize> sizes =

@@ -9,6 +9,7 @@ add_executable(Viking
     "source/Viking/Core/Log.hpp"
     "source/Viking/Core/Window.cpp"
     "source/Viking/Core/Window.hpp"
+    "source/Viking/Debug/Profiler.hpp"
     "source/Viking/Renderer/Buffer.cpp"
     "source/Viking/Renderer/Buffer.hpp"
     "source/Viking/Renderer/GraphicsContext.cpp"
@@ -22,6 +23,8 @@ add_executable(Viking
     "source/vk_textures.hpp"
     "source/vk_textures.cpp"
 )
+
+target_compile_definitions(Viking PRIVATE "DEBUG=$<IF:$<CONFIG:Debug>,1,0>")
 
 include_directories("source/Viking")
 
@@ -43,13 +46,15 @@ CPMAddPackage("gh:g-truc/glm#0.9.9.8")
 target_include_directories(Viking
 	PUBLIC
         ${VULKAN_INCLUDE_DIRS}
-        ${PROJECT_SOURCE_DIR}/../dependencies/tinyobjloader
-        ${PROJECT_SOURCE_DIR}/../dependencies/stb
+        ${DEPENDENCIES_PATH}/tinyobjloader
+        ${DEPENDENCIES_PATH}/stb
+        ${DEPENDENCIES_PATH}/Optick_1.4.0/include
 )
 
 target_link_directories(Viking
     PUBLIC
         $ENV{VULKAN_SDK}/Lib
+        ${DEPENDENCIES_PATH}/Optick_1.4.0/lib/x64/debug
 )
 
 target_link_libraries(Viking
@@ -65,6 +70,7 @@ target_link_libraries(Viking
         spirv-cross-glsld
         SPIRV-Toolsd
         VulkanMemoryAllocator
+        OptickCore
 )
 
 

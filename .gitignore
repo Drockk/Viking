@@ -1,8 +1,9 @@
 #Directories
-.idea/*
-.vs/*
+.idea/
+.vs/
+.vscode/
 cmake-build-debug/
-out/*
+out/
 
 #Files
 *.DotSettings.*

@@ -10,6 +10,8 @@
 
 #include <spdlog/fmt/bin_to_hex.h>
 
+#include "Debug/Profiler.hpp"
+
 namespace vi
 {
     namespace fs = std::filesystem;
@@ -93,6 +95,7 @@ namespace vi
 
     Shader::Shader(const VkDevice p_device, const fs::path& p_filename): m_file_path{p_filename}, m_device{p_device}
     {
+        PROFILER_EVENT();
         utils::create_cache_directory_if_needed();
 
         if (p_filename.extension() == ".spv") {
@@ -108,6 +111,7 @@ namespace vi
 
     Shader::~Shader()
     {
+        PROFILER_EVENT();
         vkDestroyShaderModule(m_device, m_shader, nullptr);
 
         std::ranges::for_each(m_shaders, [this](const std::pair<ShaderType, VkShaderModule>&& p_shader) {
@@ -118,6 +122,7 @@ namespace vi
 
     void Shader::load_shader(const fs::path &p_filename)
     {
+        PROFILER_EVENT();
         if (p_filename.extension() == ".spv") {
             create_shader_module(load_from_binary_file(p_filename));
         }
@@ -127,7 +132,8 @@ namespace vi
 
     std::vector<uint32_t> Shader::load_from_binary_file(const fs::path& p_filename)
     {
-        if (not fs::exists(p_filename)) {
+        PROFILER_EVENT();
+        if (not exists(p_filename)) {
             throw std::invalid_argument(fmt::format("Binary Shader file {} doesn't exist", p_filename.string()));
         }
 
@@ -151,6 +157,7 @@ namespace vi
 
     void Shader::create_shader_module(const std::vector<uint32_t>& p_buffer)
     {
+        PROFILER_EVENT();
         VkShaderModuleCreateInfo create_info{};
 
         create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -167,6 +174,7 @@ namespace vi
 
     std::string Shader::read_file(const std::filesystem::path &p_filename)
     {
+        PROFILER_EVENT();
         if (not exists(p_filename)) {
             throw std::invalid_argument(fmt::format("File {} doesn't exist", p_filename.string()));
         }
@@ -189,6 +197,7 @@ namespace vi
 
     std::unordered_map<ShaderType, std::string> Shader::pre_process(const std::string& p_source)
     {
+        PROFILER_EVENT();
         std::unordered_map<ShaderType, std::string> shader_sources;
 
         const std::string type_token = "#type";
@@ -223,6 +232,7 @@ namespace vi
 
     void Shader::compile_or_get_vulkan_binaries(const std::unordered_map<ShaderType, std::string>& p_sources)
     {
+        PROFILER_EVENT();
         shaderc::CompileOptions options;
         options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
 
@@ -275,6 +285,7 @@ namespace vi
     }
 
     void Shader::reflect(const std::pair<ShaderType, std::vector<uint32_t>>& p_shader_data) {
+        PROFILER_EVENT();
         const auto& [stage, data] = p_shader_data;
 
         const spirv_cross::Compiler compiler(data);
@@ -299,6 +310,7 @@ namespace vi
 
     void Shader::create_shader_modules()
     {
+        PROFILER_EVENT();
         std::ranges::for_each(m_vulkan_spirv, [this](const std::pair<ShaderType, std::vector<uint32_t>>&& p_spriv_output) {
             const auto& [type, data] = p_spriv_output;
 

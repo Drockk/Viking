@@ -2,9 +2,11 @@
 #include <spdlog/sinks/dist_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
+#include "Debug/Profiler.hpp"
 
 namespace vi {
     void Log::init() {
+        PROFILER_EVENT();
         auto dist_sink = std::make_shared<spdlog::sinks::dist_sink_mt>();
 
         const auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();

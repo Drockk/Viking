@@ -1,9 +1,11 @@
 #include "vk_engine.hpp"
+#include "Debug/Profiler.hpp"
 
 #include <iostream>
 
 int main()
 {
+    PROFILER_APP("Viking Engine");
     try {
         ViEngine engine;
 
