@@ -11,11 +11,14 @@ namespace vi
         enum class Usage
         {
             UNIFORM_BUFFER,
+            STORAGE_BUFFER,
+            TRANSFER_SOURCE,
             INVALID
         };
 
         enum class MemoryUsage
         {
+            CPU_ONLY,
             CPU_TO_GPU,
             INVALID
         };
@@ -29,13 +32,26 @@ namespace vi
         Buffer(size_t p_alloc_size, Usage p_usage, MemoryUsage p_memory_usage);
         ~Buffer();
 
+        void copy_data_to_buffer(const void* p_data, size_t p_size, size_t p_offset = 0);
 
+        AllocatedBuffer& get_buffer();
+
+        void map_memory(void** p_data) const;
+        void unmap_memory();
 
     private:
+        void destroy();
+
+        void map_memory();
+
         [[nodiscard]] static VkBufferUsageFlags usage_to_vulkan_usage(Usage p_usage);
         [[nodiscard]] static VmaMemoryUsage memory_usage_to_vma_memory_usage(MemoryUsage p_memory_usage);
 
         VmaAllocator m_allocator{};
         AllocatedBuffer m_buffer{};
+
+        size_t m_allocated_size{ 0 };
+        bool m_destroyed{ false };
+        void* m_data{ nullptr };
     };
 }

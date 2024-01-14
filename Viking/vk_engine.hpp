@@ -3,6 +3,7 @@
 #include "vk_types.hpp"
 #include "vk_mesh.hpp"
 #include "Core/Window.hpp"
+#include "Renderer/Buffer.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
@@ -54,10 +55,10 @@ struct FrameData {
     VkCommandPool m_command_pool;
     VkCommandBuffer m_main_command_buffer;
 
-    AllocatedBuffer m_camera_buffer;
+    std::unique_ptr<vi::Buffer> m_camera_buffer{};
     VkDescriptorSet m_global_descriptor;
 
-    AllocatedBuffer m_object_buffer;
+    std::unique_ptr<vi::Buffer> m_object_buffer{};
     VkDescriptorSet m_object_descriptor;
 };
 
@@ -124,7 +125,6 @@ public:
     VkDescriptorSetLayout m_object_set_layout;
 
     GPUSceneData m_scene_parameters;
-    AllocatedBuffer m_scene_parameter_buffer;
 
     UploadContext m_upload_context{};
 
@@ -167,8 +167,6 @@ public:
     //our draw function
     void draw_objects(VkCommandBuffer p_cmd, const RenderObject* p_first, int p_count);
 
-    [[nodiscard]] AllocatedBuffer create_buffer(size_t p_alloc_size, VkBufferUsageFlags p_usage, VmaMemoryUsage p_memory_usage) const;
-
     [[nodiscard]] size_t pad_uniform_buffer_size(size_t p_original_size) const;
 
     void immediate_submit(std::function<void(VkCommandBuffer p_cmd)>&& p_function) const;
@@ -191,5 +189,6 @@ private:
 
     void upload_mesh(Mesh& p_mesh) const;
 
-    std::unique_ptr<vi::Window> m_window;
+    std::unique_ptr<vi::Window> m_window{};
+    std::unique_ptr<vi::Buffer> m_scene_parameter_buffer{};
 };

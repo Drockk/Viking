@@ -420,8 +420,8 @@ void ViEngine::init_sync_structures()
 void ViEngine::init_pipelines()
 {
     const auto device = vi::GraphicsContext::get_device();
-    auto colored_mesh_shader = std::make_unique<vi::Shader>(device, R"(D:\projekty\Viking\Shaders\colored_mesh.shader)");
-    auto textured_mesh_shader = std::make_unique<vi::Shader>(device, R"(D:\projekty\Viking\Shaders\textured_mesh.shader)");
+    auto colored_mesh_shader = std::make_unique<vi::Shader>(device, R"(C:\Users\batzi\source\repos\Viking\Shaders\colored_mesh.shader)");
+    auto textured_mesh_shader = std::make_unique<vi::Shader>(device, R"(C:\Users\batzi\source\repos\Viking\Shaders\textured_mesh.shader)");
 
     //build the stage-create-info for both vertex and fragment stages. This lets the pipeline know the shader modules per stage
     PipelineBuilder pipeline_builder;
@@ -607,10 +607,10 @@ void ViEngine::load_meshes()
 
     //load the monkey
     Mesh monkeyMesh{};
-    monkeyMesh.load_from_obj(R"(D:\projekty\Viking\Assets\monkey_smooth.obj)");
+    monkeyMesh.load_from_obj(R"(C:\Users\batzi\source\repos\Viking\Assets\monkey_smooth.obj)");
 
     Mesh lostEmpire{};
-    lostEmpire.load_from_obj(R"(D:\projekty\Viking\Assets\lost_empire.obj)");
+    lostEmpire.load_from_obj(R"(C:\Users\batzi\source\repos\Viking\Assets\lost_empire.obj)");
 
     upload_mesh(triMesh);
     upload_mesh(monkeyMesh);
@@ -627,7 +627,7 @@ void ViEngine::load_images()
     Texture lostEmpire;
     const auto device = vi::GraphicsContext::get_device();
 
-    vkutil::load_image_from_file(*this, R"(D:\projekty\Viking\Assets\lost_empire-RGBA.png)", lostEmpire.m_image);
+    vkutil::load_image_from_file(*this, R"(C:\Users\batzi\source\repos\Viking\Assets\lost_empire-RGBA.png)", lostEmpire.m_image);
 
     const auto imageinfo = vkinit::imageview_create_info(VK_FORMAT_R8G8B8A8_SRGB, lostEmpire.m_image.m_image, VK_IMAGE_ASPECT_COLOR_BIT);
     vkCreateImageView(device, &imageinfo, nullptr, &lostEmpire.m_image_view);
@@ -755,32 +755,20 @@ void ViEngine::draw_objects(const VkCommandBuffer p_cmd, const RenderObject* p_f
     camData.m_view = view;
     camData.m_view_proj = projection * view;
 
-    void* data;
-    const auto allocator = vi::GraphicsContext::get_allocator();
-    vmaMapMemory(allocator, get_current_frame().m_camera_buffer.m_allocation, &data);
-
-    memcpy(data, &camData, sizeof(GPUCameraData));
-
-    vmaUnmapMemory(allocator, get_current_frame().m_camera_buffer.m_allocation);
+    const auto& camera_buffer = get_current_frame().m_camera_buffer;
+    camera_buffer->copy_data_to_buffer(&camData, sizeof(GPUCameraData));
 
     const auto framed = static_cast<float>(m_frame_number) / 120.f;
 
     m_scene_parameters.m_ambient_color = { sin(framed),0,cos(framed),1 };
 
-    char* sceneData;
-    vmaMapMemory(allocator, m_scene_parameter_buffer.m_allocation , reinterpret_cast<void**>(&sceneData));
-
     const auto frameIndex = m_frame_number % FRAME_OVERLAP;
 
-    sceneData += pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
-
-    memcpy(sceneData, &m_scene_parameters, sizeof(GPUSceneData));
-
-    vmaUnmapMemory(allocator, m_scene_parameter_buffer.m_allocation);
-
+    m_scene_parameter_buffer->copy_data_to_buffer(&m_scene_parameters, sizeof(GPUSceneData), pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex);
 
     void* objectData;
-    vmaMapMemory(allocator, get_current_frame().m_object_buffer.m_allocation, &objectData);
+    auto& object_buffer = get_current_frame().m_object_buffer;
+    object_buffer->map_memory(&objectData);
 
     auto objectSSBO = static_cast<GPUObjectData*>(objectData);
 
@@ -790,7 +778,7 @@ void ViEngine::draw_objects(const VkCommandBuffer p_cmd, const RenderObject* p_f
         objectSSBO[i].m_model_matrix = object.m_transform_matrix;
     }
 
-    vmaUnmapMemory(allocator, get_current_frame().m_object_buffer.m_allocation);
+    object_buffer->unmap_memory();
 
     const Mesh* lastMesh = nullptr;
     const Material* lastMaterial = nullptr;
@@ -901,30 +889,6 @@ void ViEngine::init_scene()
     vkUpdateDescriptorSets(device, 1, &texture1, 0, nullptr);
 }
 
-AllocatedBuffer ViEngine::create_buffer(const size_t p_alloc_size, const VkBufferUsageFlags p_usage, const VmaMemoryUsage p_memory_usage) const {
-    //allocate vertex buffer
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.pNext = nullptr;
-    bufferInfo.size = p_alloc_size;
-    bufferInfo.usage = p_usage;
-
-    //let the VMA library know that this data should be write-able by CPU, but also readable by GPU
-    VmaAllocationCreateInfo vma_alloc_info{};
-    vma_alloc_info.usage = p_memory_usage;
-
-    AllocatedBuffer new_buffer{};
-
-    //allocate the buffer
-    const auto allocator = vi::GraphicsContext::get_allocator();
-    VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &vma_alloc_info,
-                             &new_buffer.m_buffer,
-                             &new_buffer.m_allocation,
-                             nullptr));
-
-    return new_buffer;
-}
-
 size_t ViEngine::pad_uniform_buffer_size(const size_t p_original_size) const {
     // Calculate required alignment based on minimum device offset alignment
     const auto gpu_properties = vi::GraphicsContext::get_gpu_properties();
@@ -1020,14 +984,13 @@ void ViEngine::init_descriptors()
     vkCreateDescriptorSetLayout(device, &set3_info, nullptr, &m_single_texture_set_layout);
 
     const auto scene_param_buffer_size = FRAME_OVERLAP * pad_uniform_buffer_size(sizeof(GPUSceneData));
-
-    m_scene_parameter_buffer = create_buffer(scene_param_buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    m_scene_parameter_buffer = std::make_unique<vi::Buffer>(scene_param_buffer_size, vi::Buffer::Usage::UNIFORM_BUFFER, vi::Buffer::MemoryUsage::CPU_TO_GPU);
 
     for (auto& [presentSemaphore, renderSemaphore, renderFence, commandPool, mainCommandBuffer, cameraBuffer, globalDescriptor, objectBuffer, objectDescriptor] : m_frames) {
-        cameraBuffer = create_buffer(sizeof(GPUCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        cameraBuffer = std::make_unique<vi::Buffer>(sizeof(GPUCameraData), vi::Buffer::Usage::UNIFORM_BUFFER, vi::Buffer::MemoryUsage::CPU_TO_GPU);
 
         constexpr auto max_objects = 10000;
-        objectBuffer = create_buffer(sizeof(GPUObjectData) * max_objects, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        objectBuffer = std::make_unique<vi::Buffer>(sizeof(GPUObjectData) * max_objects, vi::Buffer::Usage::STORAGE_BUFFER, vi::Buffer::MemoryUsage::CPU_TO_GPU);
 
         VkDescriptorSetAllocateInfo alloc_info{};
         alloc_info.pNext = nullptr;
@@ -1048,17 +1011,17 @@ void ViEngine::init_descriptors()
         vkAllocateDescriptorSets(device, &object_set_alloc, &objectDescriptor);
 
         VkDescriptorBufferInfo camera_info{};
-        camera_info.buffer = cameraBuffer.m_buffer;
+        camera_info.buffer = cameraBuffer->get_buffer().m_buffer;
         camera_info.offset = 0;
         camera_info.range = sizeof(GPUCameraData);
 
         VkDescriptorBufferInfo scene_info{};
-        scene_info.buffer = m_scene_parameter_buffer.m_buffer;
+        scene_info.buffer = m_scene_parameter_buffer->get_buffer().m_buffer;
         scene_info.offset = 0;
         scene_info.range = sizeof(GPUSceneData);
 
         VkDescriptorBufferInfo object_buffer_info{};
-        object_buffer_info.buffer = objectBuffer.m_buffer;
+        object_buffer_info.buffer = objectBuffer->get_buffer().m_buffer;
         object_buffer_info.offset = 0;
         object_buffer_info.range = sizeof(GPUObjectData) * max_objects;
 
@@ -1073,17 +1036,11 @@ void ViEngine::init_descriptors()
 
     vi::DeletionQueue::push_function([this, device] {
         const auto allocator = vi::GraphicsContext::get_allocator();
-        vmaDestroyBuffer(allocator, m_scene_parameter_buffer.m_buffer, m_scene_parameter_buffer.m_allocation);
 
         vkDestroyDescriptorSetLayout(device, m_object_set_layout, nullptr);
         vkDestroyDescriptorSetLayout(device, m_global_set_layout, nullptr);
         vkDestroyDescriptorSetLayout(device, m_single_texture_set_layout, nullptr);
 
         vkDestroyDescriptorPool(device, m_descriptor_pool, nullptr);
-
-        std::ranges::for_each(m_frames, [this, allocator](const FrameData& p_frame) {
-            vmaDestroyBuffer(allocator, p_frame.m_camera_buffer.m_buffer, p_frame.m_camera_buffer.m_allocation);
-            vmaDestroyBuffer(allocator, p_frame.m_object_buffer.m_buffer, p_frame.m_object_buffer.m_allocation);
-        });
     });
 }

@@ -27,16 +27,9 @@ bool vkutil::load_image_from_file(ViEngine& engine, const char* file, AllocatedI
     VkFormat image_format = VK_FORMAT_R8G8B8A8_SRGB;
 
     //allocate temporary buffer for holding texture data to upload
-    AllocatedBuffer stagingBuffer = engine.create_buffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+    auto staging_buffer = vi::Buffer(imageSize, vi::Buffer::Usage::TRANSFER_SOURCE, vi::Buffer::MemoryUsage::CPU_ONLY);
+    staging_buffer.copy_data_to_buffer(pixel_ptr, imageSize);
 
-    //copy data to buffer
-    void* data;
-    auto allocator = vi::GraphicsContext::get_allocator();
-    vmaMapMemory(allocator, stagingBuffer.m_allocation, &data);
-
-    memcpy(data, pixel_ptr, static_cast<size_t>(imageSize));
-
-    vmaUnmapMemory(allocator, stagingBuffer.m_allocation);
     //we no longer need the loaded data, so we can free the pixels as they are now in the staging buffer
     stbi_image_free(pixels);
 
@@ -53,6 +46,7 @@ bool vkutil::load_image_from_file(ViEngine& engine, const char* file, AllocatedI
     dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
     //allocate and create the image
+    auto allocator = vi::GraphicsContext::get_allocator();
     vmaCreateImage(allocator, &dimg_info, &dimg_allocinfo, &newImage.m_image, &newImage.m_allocation, nullptr);
 
     engine.immediate_submit([&](VkCommandBuffer cmd) {
@@ -89,7 +83,7 @@ bool vkutil::load_image_from_file(ViEngine& engine, const char* file, AllocatedI
         copyRegion.imageExtent = imageExtent;
 
         //copy the buffer into the image
-        vkCmdCopyBufferToImage(cmd, stagingBuffer.m_buffer, newImage.m_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+        vkCmdCopyBufferToImage(cmd, staging_buffer.get_buffer().m_buffer, newImage.m_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
         VkImageMemoryBarrier imageBarrier_toReadable = imageBarrier_toTransfer;
 
@@ -106,8 +100,6 @@ bool vkutil::load_image_from_file(ViEngine& engine, const char* file, AllocatedI
     vi::DeletionQueue::push_function([=] {
         vmaDestroyImage(allocator, newImage.m_image, newImage.m_allocation);
     });
-
-    vmaDestroyBuffer(allocator, stagingBuffer.m_buffer, stagingBuffer.m_allocation);
 
     VI_CORE_TRACE("Loaded texture: {}", file);
 
