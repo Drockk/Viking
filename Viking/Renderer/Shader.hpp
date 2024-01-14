@@ -17,19 +17,16 @@ namespace vi
     {
     public:
         explicit Shader(VkDevice p_device, const std::filesystem::path& p_filename);
+        Shader(Shader& p_other) = delete; // Deleted until usage will be found
+        Shader(Shader&& p_other) = delete; // Deleted until usage will be found
         ~Shader();
+
+        Shader& operator=(Shader& p_other) = delete; //Deleted until usage will be found
+        Shader& operator=(Shader&& p_other) = delete; //Deleted until usage will be found
 
         [[nodiscard]] VkShaderModule get_shader_module(const ShaderType p_type) const {
             return m_shaders.at(p_type);
         }
-
-        //Old
-        [[nodiscard]] VkShaderModule get_shader_module() const
-        {
-            return m_shader;
-        }
-
-        void load_shader(const std::filesystem::path& p_filename);
 
     private:
         static std::string read_file(const std::filesystem::path& p_filename);
@@ -42,13 +39,6 @@ namespace vi
         std::unordered_map<ShaderType, VkShaderModule> m_shaders;
         std::filesystem::path m_file_path{};
 
-
-        //Old
-        void create_shader_module(const std::vector<uint32_t>& p_buffer);
-        [[nodiscard]] static std::vector<uint32_t> load_from_binary_file(const std::filesystem::path& p_filename);
-
-
         VkDevice m_device{};
-        VkShaderModule m_shader{};
     };
 } // vi

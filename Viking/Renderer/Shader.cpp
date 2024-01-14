@@ -95,11 +95,6 @@ namespace vi
     {
         utils::create_cache_directory_if_needed();
 
-        if (p_filename.extension() == ".spv") {
-            load_shader(p_filename);
-            return;
-        }
-
         const auto source = read_file(p_filename);
         const auto shader_sources = pre_process(source);
         compile_or_get_vulkan_binaries(shader_sources);
@@ -108,61 +103,10 @@ namespace vi
 
     Shader::~Shader()
     {
-        vkDestroyShaderModule(m_device, m_shader, nullptr);
-
         std::ranges::for_each(m_shaders, [this](const std::pair<ShaderType, VkShaderModule>&& p_shader) {
             const auto& [type, shader] = p_shader;
             vkDestroyShaderModule(m_device, shader, nullptr);
         });
-    }
-
-    void Shader::load_shader(const fs::path &p_filename)
-    {
-        if (p_filename.extension() == ".spv") {
-            create_shader_module(load_from_binary_file(p_filename));
-        }
-
-        VI_CORE_TRACE("Loaded shader: {}", p_filename.stem());
-    }
-
-    std::vector<uint32_t> Shader::load_from_binary_file(const fs::path& p_filename)
-    {
-        if (not fs::exists(p_filename)) {
-            throw std::invalid_argument(fmt::format("Binary Shader file {} doesn't exist", p_filename.string()));
-        }
-
-        const auto file_size = fs::file_size(p_filename);
-
-        std::vector<uint32_t> buffer;
-        buffer.resize(file_size / sizeof(uint32_t));
-
-        std::ifstream shader_file(p_filename, std::ios::binary);
-
-        if (not shader_file.is_open()) {
-            throw std::invalid_argument(fmt::format("Cannot open: {}", p_filename.string()));
-        }
-
-        shader_file.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(file_size));
-
-        shader_file.close();
-
-        return buffer;
-    }
-
-    void Shader::create_shader_module(const std::vector<uint32_t>& p_buffer)
-    {
-        VkShaderModuleCreateInfo create_info{};
-
-        create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-        create_info.pNext = nullptr;
-        create_info.codeSize = p_buffer.size() * sizeof(uint32_t);
-        create_info.pCode = p_buffer.data();
-
-        if (const auto result = vkCreateShaderModule(m_device, &create_info, nullptr, &m_shader); result != VK_SUCCESS) {
-            throw std::runtime_error(fmt::format("Cannot create shader module, error: {}", static_cast<int>(result)));
-        }
-
-        VI_CORE_INFO("OLD\n {}", spdlog::to_hex(std::begin(p_buffer), std::end(p_buffer)));
     }
 
     std::string Shader::read_file(const std::filesystem::path &p_filename)

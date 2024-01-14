@@ -30,7 +30,12 @@ namespace vi
         };
 
         Buffer(size_t p_alloc_size, Usage p_usage, MemoryUsage p_memory_usage);
+        Buffer(Buffer& p_other) = delete; // Deleted until usage will be found
+        Buffer(Buffer&& p_other) = delete; // Deleted until usage will be found
         ~Buffer();
+
+        Buffer& operator=(Buffer& p_other) = delete; //Deleted until usage will be found
+        Buffer& operator=(Buffer&& p_other) = delete; //Deleted until usage will be found
 
         void copy_data_to_buffer(const void* p_data, size_t p_size, size_t p_offset = 0);
 
