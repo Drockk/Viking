@@ -47,21 +47,6 @@ struct RenderObject {
     glm::mat4 m_transform_matrix;
 };
 
-struct FrameData {
-    VkSemaphore m_present_semaphore;
-    VkSemaphore m_render_semaphore;
-    VkFence m_render_fence;
-
-    VkCommandPool m_command_pool;
-    VkCommandBuffer m_main_command_buffer;
-
-    std::unique_ptr<vi::Buffer> m_camera_buffer{};
-    VkDescriptorSet m_global_descriptor;
-
-    std::unique_ptr<vi::Buffer> m_object_buffer{};
-    VkDescriptorSet m_object_descriptor;
-};
-
 struct GPUCameraData{
     glm::mat4 m_view;
     glm::mat4 m_proj;
@@ -80,12 +65,6 @@ struct GPUObjectData {
     glm::mat4 m_model_matrix;
 };
 
-struct UploadContext {
-    VkFence m_upload_fence{};
-    VkCommandPool m_command_pool{};
-    VkCommandBuffer m_command_buffer{};
-};
-
 struct Texture {
     AllocatedImage m_image;
     VkImageView m_image_view;
@@ -100,8 +79,6 @@ public:
     int m_frame_number{};
 
     VkExtent2D m_window_extent{ 1600 , 900 };
-
-    FrameData m_frames[FRAME_OVERLAP];
 
     VkRenderPass m_render_pass;
 
@@ -126,8 +103,6 @@ public:
 
     GPUSceneData m_scene_parameters;
 
-    UploadContext m_upload_context{};
-
     //texture hash-map
     std::unordered_map<std::string, Texture> m_loaded_textures;
 
@@ -144,9 +119,6 @@ public:
 
     //run the main loop
     void run();
-
-    FrameData& get_current_frame();
-    FrameData& get_last_frame();
 
     //default array of render-able objects
     std::vector<RenderObject> m_renderables;
@@ -175,14 +147,12 @@ public:
 
 private:
 
-    void init_commands();
     void init_default_renderpass();
     void init_descriptors();
     void init_framebuffers();
     void init_pipelines();
     void init_scene();
     void init_swapchain();
-    void init_sync_structures();
 
     //loads a shader module from a spir-v file. Returns false if it errors
     void load_meshes();

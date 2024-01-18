@@ -37,8 +37,6 @@ void ViEngine::init()
     init_swapchain();
     init_default_renderpass();
     init_framebuffers();
-    init_commands();
-    init_sync_structures();
     init_descriptors();
     init_pipelines();
 
@@ -61,21 +59,24 @@ void ViEngine::cleanup() const {
 
 void ViEngine::draw()
 {
+    vi::GraphicsContext::start_frame();
     const auto device = vi::GraphicsContext::get_device();
+    const auto& frame = vi::GraphicsContext::get_current_frame();
+
     //Wait until the gpu has finished rendering the last frame. Timeout of 1 second
-    VK_CHECK(vkWaitForFences(device, 1, &get_current_frame().m_render_fence, true, 1000000000));
-    VK_CHECK(vkResetFences(device, 1, &get_current_frame().m_render_fence));
+    VK_CHECK(vkWaitForFences(device, 1, &frame.m_render_fence, true, 1000000000));
+    VK_CHECK(vkResetFences(device, 1, &frame.m_render_fence));
 
     //now that we are sure that the commands finished executing,
     // we can safely reset the command buffer to begin recording again.
-    VK_CHECK(vkResetCommandBuffer(get_current_frame().m_main_command_buffer, 0));
+    VK_CHECK(vkResetCommandBuffer(frame.m_main_command_buffer, 0));
 
     //request image from the swapchain
     uint32_t swapchain_image_index{};
-    VK_CHECK(vkAcquireNextImageKHR(device, m_swapchain, 1000000000, get_current_frame().m_present_semaphore, nullptr, &swapchain_image_index));
+    VK_CHECK(vkAcquireNextImageKHR(device, m_swapchain, 1000000000, frame.m_present_semaphore, nullptr, &swapchain_image_index));
 
     //Naming it cmd for shorter writing
-    const auto cmd = get_current_frame().m_main_command_buffer;
+    const auto cmd = frame.m_main_command_buffer;
 
     //begin the command buffer recording. We will use this command buffer exactly once, so we want to let vulkan know that
     const auto cmd_begin_info = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
@@ -121,15 +122,15 @@ void ViEngine::draw()
     submit.pWaitDstStageMask = &wait_stage;
 
     submit.waitSemaphoreCount = 1;
-    submit.pWaitSemaphores = &get_current_frame().m_present_semaphore;
+    submit.pWaitSemaphores = &frame.m_present_semaphore;
 
     submit.signalSemaphoreCount = 1;
-    submit.pSignalSemaphores = &get_current_frame().m_render_semaphore;
+    submit.pSignalSemaphores = &frame.m_render_semaphore;
 
     //submit command buffer to the queue and execute it.
     // _renderFence will now block until the graphic commands finish execution
     const auto graphics_queue = vi::GraphicsContext::get_graphics_queue();
-    VK_CHECK(vkQueueSubmit(graphics_queue, 1, &submit, get_current_frame().m_render_fence));
+    VK_CHECK(vkQueueSubmit(graphics_queue, 1, &submit, frame.m_render_fence));
 
     //prepare present
     // this will put the image we just rendered to into the visible window.
@@ -140,15 +141,14 @@ void ViEngine::draw()
     present_info.pSwapchains = &m_swapchain;
     present_info.swapchainCount = 1;
 
-    present_info.pWaitSemaphores = &get_current_frame().m_render_semaphore;
+    present_info.pWaitSemaphores = &frame.m_render_semaphore;
     present_info.waitSemaphoreCount = 1;
 
     present_info.pImageIndices = &swapchain_image_index;
 
     VK_CHECK(vkQueuePresentKHR(graphics_queue, &present_info));
 
-    //increase the number of frames drawn
-    m_frame_number++;
+    vi::GraphicsContext::end_frame();
 }
 
 void ViEngine::run()
@@ -157,17 +157,6 @@ void ViEngine::run()
         m_window->on_update();
         draw();
     }
-}
-
-FrameData& ViEngine::get_current_frame()
-{
-    return m_frames[m_frame_number % FRAME_OVERLAP];
-}
-
-
-FrameData& ViEngine::get_last_frame()
-{
-    return m_frames[(m_frame_number -1) % 2];
 }
 
 void ViEngine::init_swapchain()
@@ -343,78 +332,6 @@ void ViEngine::init_framebuffers()
             vkDestroyImageView(device, m_swapchain_image_views[i], nullptr);
         });
     }
-}
-
-void ViEngine::init_commands()
-{
-    const auto device = vi::GraphicsContext::get_device();
-    const auto graphics_queue_family = vi::GraphicsContext::get_graphics_queue_family();
-    //create a command pool for commands submitted to the graphics queue.
-    //we also want the pool to allow for resetting of individual command buffers
-    const auto command_pool_info = vkinit::command_pool_create_info(graphics_queue_family, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-
-    for (auto& [present_semaphore, render_semaphore, render_fence, command_pool, main_command_buffer, camera_buffer, global_descriptor, object_buffer, object_descriptor] : m_frames) {
-        VK_CHECK(vkCreateCommandPool(device, &command_pool_info, nullptr, &command_pool));
-
-        //allocate the default command buffer that we will use for rendering
-        auto cmd_alloc_info = vkinit::command_buffer_allocate_info(command_pool, 1);
-
-        VK_CHECK(vkAllocateCommandBuffers(device, &cmd_alloc_info, &main_command_buffer));
-
-        vi::DeletionQueue::push_function([=, this] {
-            vkDestroyCommandPool(device, command_pool, nullptr);
-        });
-    }
-
-    const auto upload_command_pool_info = vkinit::command_pool_create_info(graphics_queue_family);
-    //create pool for upload context
-    VK_CHECK(vkCreateCommandPool(device, &upload_command_pool_info, nullptr, &m_upload_context.m_command_pool));
-
-    vi::DeletionQueue::push_function([this, device] {
-        vkDestroyCommandPool(device, m_upload_context.m_command_pool, nullptr);
-    });
-
-    //allocate the default command buffer that we will use for rendering
-    const auto cmd_alloc_info = vkinit::command_buffer_allocate_info(m_upload_context.m_command_pool, 1);
-
-    VK_CHECK(vkAllocateCommandBuffers(device, &cmd_alloc_info, &m_upload_context.m_command_buffer));
-}
-
-void ViEngine::init_sync_structures()
-{
-    //create synchronization structures
-    //one fence to control when the gpu has finished rendering the frame,
-    //and 2 semaphores to synchronize rendering with swapchain
-    //we want the fence to start signaled so we can wait on it on the first frame
-    const auto fence_create_info = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
-
-    const auto semaphore_create_info = vkinit::semaphore_create_info();
-
-    const auto device = vi::GraphicsContext::get_device();
-    for (auto& [present_semaphore, render_semaphore, render_fence, command_pool, main_command_buffer, camera_buffer, global_descriptor, object_buffer, object_descriptor] : m_frames) {
-        VK_CHECK(vkCreateFence(device, &fence_create_info, nullptr, &render_fence));
-
-        //enqueue the destruction of the fence
-        vi::DeletionQueue::push_function([=, this] {
-            vkDestroyFence(device, render_fence, nullptr);
-        });
-
-        VK_CHECK(vkCreateSemaphore(device, &semaphore_create_info, nullptr, &present_semaphore));
-        VK_CHECK(vkCreateSemaphore(device, &semaphore_create_info, nullptr, &render_semaphore));
-
-        //enqueue the destruction of semaphores
-        vi::DeletionQueue::push_function([=, this] {
-            vkDestroySemaphore(device, present_semaphore, nullptr);
-            vkDestroySemaphore(device, render_semaphore, nullptr);
-        });
-    }
-
-    const auto upload_fence_create_info = vkinit::fence_create_info();
-
-    VK_CHECK(vkCreateFence(device, &upload_fence_create_info, nullptr, &m_upload_context.m_upload_fence));
-    vi::DeletionQueue::push_function([=, this] {
-        vkDestroyFence(device, m_upload_context.m_upload_fence, nullptr);
-    });
 }
 
 void ViEngine::init_pipelines()
@@ -755,7 +672,8 @@ void ViEngine::draw_objects(const VkCommandBuffer p_cmd, const RenderObject* p_f
     camData.m_view = view;
     camData.m_view_proj = projection * view;
 
-    const auto& camera_buffer = get_current_frame().m_camera_buffer;
+    const auto& frame = vi::GraphicsContext::get_current_frame();
+    const auto& camera_buffer = frame.m_camera_buffer;
     camera_buffer->copy_data_to_buffer(&camData, sizeof(GPUCameraData));
 
     const auto framed = static_cast<float>(m_frame_number) / 120.f;
@@ -767,7 +685,7 @@ void ViEngine::draw_objects(const VkCommandBuffer p_cmd, const RenderObject* p_f
     m_scene_parameter_buffer->copy_data_to_buffer(&m_scene_parameters, sizeof(GPUSceneData), pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex);
 
     void* objectData;
-    auto& object_buffer = get_current_frame().m_object_buffer;
+    auto& object_buffer = frame.m_object_buffer;
     object_buffer->map_memory(&objectData);
 
     auto objectSSBO = static_cast<GPUObjectData*>(objectData);
@@ -794,10 +712,10 @@ void ViEngine::draw_objects(const VkCommandBuffer p_cmd, const RenderObject* p_f
             lastMaterial = object.m_material;
 
             uint32_t uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
-            vkCmdBindDescriptorSets(p_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.m_material->m_pipeline_layout, 0, 1, &get_current_frame().m_global_descriptor, 1, &uniform_offset);
+            vkCmdBindDescriptorSets(p_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.m_material->m_pipeline_layout, 0, 1, &frame.m_global_descriptor, 1, &uniform_offset);
 
             //object data descriptor
-            vkCmdBindDescriptorSets(p_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.m_material->m_pipeline_layout, 1, 1, &get_current_frame().m_object_descriptor, 0, nullptr);
+            vkCmdBindDescriptorSets(p_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.m_material->m_pipeline_layout, 1, 1, &frame.m_object_descriptor, 0, nullptr);
 
             if (object.m_material->m_texture_set != VK_NULL_HANDLE) {
                 //texture descriptor
@@ -903,7 +821,12 @@ size_t ViEngine::pad_uniform_buffer_size(const size_t p_original_size) const {
 
 void ViEngine::immediate_submit(std::function<void(VkCommandBuffer p_cmd)>&& p_function) const {
     const auto device = vi::GraphicsContext::get_device();
-    const auto cmd =m_upload_context.m_command_buffer;
+
+    const auto& upload_context = vi::GraphicsContext::get_upload_context();
+    const auto cmd = upload_context.m_command_buffer;
+    const auto& upload_fence = upload_context.m_upload_fence;
+    const auto& command_pool = upload_context.m_command_pool;
+
     //Begin the command buffer recording. We will use this command buffer exactly once, so we want to let vulkan know that
     const auto cmd_begin_info = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
@@ -918,12 +841,12 @@ void ViEngine::immediate_submit(std::function<void(VkCommandBuffer p_cmd)>&& p_f
     //submit command buffer to the queue and execute it.
     // _renderFence will now block until the graphic commands finish execution
     const auto graphics_queue = vi::GraphicsContext::get_graphics_queue();
-    VK_CHECK(vkQueueSubmit(graphics_queue, 1, &submit, m_upload_context.m_upload_fence));
+    VK_CHECK(vkQueueSubmit(graphics_queue, 1, &submit, upload_fence));
 
-    vkWaitForFences(device, 1, &m_upload_context.m_upload_fence, true, 9999999999);
-    vkResetFences(device, 1, &m_upload_context.m_upload_fence);
+    vkWaitForFences(device, 1, &upload_fence, true, 9999999999);
+    vkResetFences(device, 1, &upload_fence);
 
-    vkResetCommandPool(device, m_upload_context.m_command_pool, 0);
+    vkResetCommandPool(device, command_pool, 0);
 }
 
 void ViEngine::init_descriptors()
@@ -986,7 +909,7 @@ void ViEngine::init_descriptors()
     const auto scene_param_buffer_size = FRAME_OVERLAP * pad_uniform_buffer_size(sizeof(GPUSceneData));
     m_scene_parameter_buffer = std::make_unique<vi::Buffer>(scene_param_buffer_size, vi::Buffer::Usage::UNIFORM_BUFFER, vi::Buffer::MemoryUsage::CPU_TO_GPU);
 
-    for (auto& [presentSemaphore, renderSemaphore, renderFence, commandPool, mainCommandBuffer, cameraBuffer, globalDescriptor, objectBuffer, objectDescriptor] : m_frames) {
+    for (auto& [presentSemaphore, renderSemaphore, renderFence, commandPool, mainCommandBuffer, cameraBuffer, globalDescriptor, objectBuffer, objectDescriptor] : vi::GraphicsContext::get_frames()) {
         cameraBuffer = std::make_unique<vi::Buffer>(sizeof(GPUCameraData), vi::Buffer::Usage::UNIFORM_BUFFER, vi::Buffer::MemoryUsage::CPU_TO_GPU);
 
         constexpr auto max_objects = 10000;

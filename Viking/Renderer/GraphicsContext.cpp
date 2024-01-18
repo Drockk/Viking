@@ -1,13 +1,20 @@
 #include "GraphicsContext.hpp"
 
+#include "Core/DeletionQueue.hpp"
 #include "Core/Log.hpp"
 
 #include <VkBootstrap.h>
 
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
+#include <vulkan/vk_enum_string_helper.h>
 
-constexpr bool USE_VALIDATION_LAYERS{ true };
+#include "vk_initializers.hpp" //TODO: To remove
+
+namespace
+{
+    constexpr bool USE_VALIDATION_LAYERS{ true };
+}
 
 namespace vi
 {
@@ -80,6 +87,9 @@ namespace vi
         vmaCreateAllocator(&allocator_info, &m_allocator);
 
         vkGetPhysicalDeviceProperties(m_chosen_gpu, &m_gpu_properties);
+
+        init_commands();
+        init_sync_structures();
     }
 
     void GraphicsContext::cleanup()
@@ -95,8 +105,144 @@ namespace vi
         vkDestroyInstance(m_instance, nullptr);
     }
 
+    //void GraphicsContext::immediate_submit(std::function<void(VkCommandBuffer p_cmd)>&& p_function)
+    //{
+    //}
+
     void GraphicsContext::wait_for_device()
     {
         vkDeviceWaitIdle(m_device);
+    }
+
+    void GraphicsContext::start_frame()
+    {
+        ++m_frame_number;
+    }
+
+    FrameData& GraphicsContext::get_current_frame()
+    {
+        return m_frames.at(m_frame_number);
+    }
+
+    FrameData& GraphicsContext::get_previous_frame()
+    {
+        if (m_frame_number > 0)
+        {
+            return m_frames.at(m_frame_number - 1);
+        }
+
+        return m_frames.at(m_frame_number);
+    }
+
+    void GraphicsContext::end_frame()
+    {
+        if (m_frame_number == FRAME_OVERLAP - 1)
+        {
+            m_frame_number = 0;
+        }
+    }
+
+    std::array<FrameData, FRAME_OVERLAP>& GraphicsContext::get_frames()
+    {
+        return m_frames;
+    }
+
+    UploadContext GraphicsContext::get_upload_context()
+    {
+        return m_upload_context;
+    }
+
+    void GraphicsContext::init_commands()
+    {
+        // Create a command pool for commands submitted to the graphics queue.
+        // We also want the pool to allow for resetting of individual command buffers
+        const auto command_pool_info = vkinit::command_pool_create_info(m_graphics_queue_family, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+
+        for (auto& frame: m_frames)
+        {
+            if (const auto result = vkCreateCommandPool(m_device, &command_pool_info, nullptr, &frame.m_command_pool); result)
+            {
+                throw std::runtime_error(std::format("Cannot create command pool: {}", string_VkResult(result)));
+            }
+
+            // Allocate the default command buffer that we will use for rendering.
+            auto cmd_alloc_info = vkinit::command_buffer_allocate_info(frame.m_command_pool, 1);
+
+            if(const auto result = vkAllocateCommandBuffers(m_device, &cmd_alloc_info, &frame.m_main_command_buffer); result)
+            {
+                throw std::runtime_error(std::format("Cannot allocate command buffer: {}", string_VkResult(result)));
+            }
+
+            DeletionQueue::push_function([&] {
+                vkDestroyCommandPool(m_device, frame.m_command_pool, nullptr);
+            });
+        }
+
+        const auto upload_command_pool_info = vkinit::command_pool_create_info(m_graphics_queue_family);
+        if (const auto result = vkCreateCommandPool(m_device, &upload_command_pool_info, nullptr, &m_upload_context.m_command_pool); result)
+        {
+            throw std::runtime_error(std::format("Cannot create command pool: {}", string_VkResult(result)));
+        }
+
+        DeletionQueue::push_function([&] {
+            vkDestroyCommandPool(m_device, m_upload_context.m_command_pool, nullptr);
+        });
+
+        //allocate the default command buffer that we will use for rendering
+        const auto cmd_alloc_info = vkinit::command_buffer_allocate_info(m_upload_context.m_command_pool, 1);
+        if (const auto result = vkAllocateCommandBuffers(m_device, &cmd_alloc_info, &m_upload_context.m_command_buffer); result)
+        {
+            throw std::runtime_error(std::format("Cannot allocate command buffer: {}", string_VkResult(result)));
+        }
+    }
+
+    void GraphicsContext::init_sync_structures()
+    {
+        //create synchronization structures
+        //one fence to control when the gpu has finished rendering the frame,
+        //and 2 semaphores to synchronize rendering with swap-chain
+        //we want the fence to start signaled, so we can wait on it on the first frame
+        const auto fence_create_info = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
+        const auto semaphore_create_info = vkinit::semaphore_create_info();
+
+        for (auto& frame : m_frames)
+        {
+            if (const auto result = vkCreateFence(m_device, &fence_create_info, nullptr, &frame.m_render_fence); result)
+            {
+                throw std::runtime_error(std::format("Cannot create fence: {}", string_VkResult(result)));
+            }
+
+            //enqueue the destruction of the fence
+            DeletionQueue::push_function([&] {
+                vkDestroyFence(m_device, frame.m_render_fence, nullptr);
+            });
+
+            if (const auto result = vkCreateSemaphore(m_device, &semaphore_create_info, nullptr, &frame.m_present_semaphore); result)
+            {
+                throw std::runtime_error(std::format("Cannot create semaphore: {}", string_VkResult(result)));
+            }
+
+            if (const auto result = vkCreateSemaphore(m_device, &semaphore_create_info, nullptr, &frame.m_render_semaphore); result)
+            {
+                throw std::runtime_error(std::format("Cannot create semaphore: {}", string_VkResult(result)));
+            }
+
+            //enqueue the destruction of semaphores
+            DeletionQueue::push_function([&] {
+                vkDestroySemaphore(m_device, frame.m_present_semaphore, nullptr);
+                vkDestroySemaphore(m_device, frame.m_render_semaphore, nullptr);
+            });
+        }
+
+        const auto upload_fence_create_info = vkinit::fence_create_info();
+
+        if (const auto result = vkCreateFence(m_device, &upload_fence_create_info, nullptr, &m_upload_context.m_upload_fence); result)
+        {
+            throw std::runtime_error(std::format("Cannot create fence: {}", string_VkResult(result)));
+        }
+
+        DeletionQueue::push_function([&] {
+            vkDestroyFence(m_device, m_upload_context.m_upload_fence, nullptr);
+        });
     }
 }
