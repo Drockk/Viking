@@ -4,6 +4,7 @@
 #include "vk_mesh.hpp"
 #include "Core/Window.hpp"
 #include "Renderer/Buffer.hpp"
+#include "Renderer/Swapchain.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
@@ -82,19 +83,19 @@ public:
 
     VkRenderPass m_render_pass;
 
-    VkSwapchainKHR m_swapchain;
-    VkFormat m_swachain_image_format;
+    //VkSwapchainKHR m_swapchain;
+    //VkFormat m_swachain_image_format;
 
     std::vector<VkFramebuffer> m_framebuffers;
-    std::vector<VkImage> m_swapchain_images;
-    std::vector<VkImageView> m_swapchain_image_views;
+    //std::vector<VkImage> m_swapchain_images;
+    //std::vector<VkImageView> m_swapchain_image_views;
 
     //depth resources
-    VkImageView m_depth_image_view;
-    AllocatedImage m_depth_image;
+    //VkImageView m_depth_image_view;
+    //AllocatedImage m_depth_image;
 
     //the format for the depth image
-    VkFormat m_depth_format;
+    //VkFormat m_depth_format;
 
     VkDescriptorPool m_descriptor_pool;
 
@@ -152,7 +153,7 @@ private:
     void init_framebuffers();
     void init_pipelines();
     void init_scene();
-    void init_swapchain();
+    //void init_swapchain();
 
     //loads a shader module from a spir-v file. Returns false if it errors
     void load_meshes();
@@ -161,4 +162,5 @@ private:
 
     std::unique_ptr<vi::Window> m_window{};
     std::unique_ptr<vi::Buffer> m_scene_parameter_buffer{};
+    std::unique_ptr<vi::Swapchain> m_swapchain{};
 };

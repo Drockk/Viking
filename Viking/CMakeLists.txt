@@ -23,7 +23,10 @@ add_executable(Viking
         vk_initializers.cpp
         vk_mesh.cpp
         vk_textures.hpp
-        vk_textures.cpp "Renderer/Buffer.cpp")
+        vk_textures.cpp
+        Renderer/Buffer.cpp
+        Renderer/Swapchain.cpp
+ "Renderer/Mesh.cpp")
 
 include_directories(.)
 

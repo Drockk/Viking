@@ -34,7 +34,9 @@ void ViEngine::init()
 
     vi::GraphicsContext::init("Viking Engine", m_window);
 
-    init_swapchain();
+    m_swapchain = std::make_unique<vi::Swapchain>(std::pair{ m_window_extent.width, m_window_extent.height });
+
+    //init_swapchain();
     init_default_renderpass();
     init_framebuffers();
     init_descriptors();
@@ -73,7 +75,8 @@ void ViEngine::draw()
 
     //request image from the swapchain
     uint32_t swapchain_image_index{};
-    VK_CHECK(vkAcquireNextImageKHR(device, m_swapchain, 1000000000, frame.m_present_semaphore, nullptr, &swapchain_image_index));
+    const auto swapchain = m_swapchain->get_swapchain();
+    VK_CHECK(vkAcquireNextImageKHR(device, swapchain, 1000000000, frame.m_present_semaphore, nullptr, &swapchain_image_index));
 
     //Naming it cmd for shorter writing
     const auto cmd = frame.m_main_command_buffer;
@@ -138,7 +141,7 @@ void ViEngine::draw()
     // as its necessary that drawing commands have finished before the image is displayed to the user
     VkPresentInfoKHR present_info = vkinit::present_info();
 
-    present_info.pSwapchains = &m_swapchain;
+    present_info.pSwapchains = &swapchain;
     present_info.swapchainCount = 1;
 
     present_info.pWaitSemaphores = &frame.m_render_semaphore;
@@ -159,65 +162,65 @@ void ViEngine::run()
     }
 }
 
-void ViEngine::init_swapchain()
-{
-    const auto device = vi::GraphicsContext::get_device();
-    const auto chosen_gpu = vi::GraphicsContext::get_chosen_gpu();
-    const auto surface = vi::GraphicsContext::get_surface();
-
-    vkb::SwapchainBuilder swapchain_builder{ chosen_gpu, device, surface };
-
-    auto vkb_swapchain = swapchain_builder
-            .use_default_format_selection()
-                    //use vsync present mode
-            .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-            .set_desired_extent(m_window_extent.width, m_window_extent.height)
-            .build()
-            .value();
-
-    //store swapchain and its related images
-    m_swapchain = vkb_swapchain.swapchain;
-    m_swapchain_images = vkb_swapchain.get_images().value();
-    m_swapchain_image_views = vkb_swapchain.get_image_views().value();
-
-    m_swachain_image_format = vkb_swapchain.image_format;
-
-    vi::DeletionQueue::push_function([this, device] {
-        vkDestroySwapchainKHR(device, m_swapchain, nullptr);
-    });
-
-    //depth image size will match the window
-    VkExtent3D depth_image_extent = {
-            m_window_extent.width,
-            m_window_extent.height,
-            1
-    };
-
-    //hardcoding the depth format to 32 bit float
-    m_depth_format = VK_FORMAT_D32_SFLOAT;
-
-    //the depth image will be a image with the format we selected and Depth Attachment usage flag
-    auto dimg_info = vkinit::image_create_info(m_depth_format, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, depth_image_extent);
-
-    //for the depth image, we want to allocate it from gpu local memory
-    VmaAllocationCreateInfo dimg_allocinfo{};
-    dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    dimg_allocinfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    //allocate and create the image
-    auto allocator = vi::GraphicsContext::get_allocator();
-    vmaCreateImage(allocator, &dimg_info, &dimg_allocinfo, &m_depth_image.m_image, &m_depth_image.m_allocation, nullptr);
-
-    //build a image-view for the depth image to use for rendering
-    VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(m_depth_format, m_depth_image.m_image, VK_IMAGE_ASPECT_DEPTH_BIT);
-
-    VK_CHECK(vkCreateImageView(device, &dview_info, nullptr, &m_depth_image_view));
-
-    vi::DeletionQueue::push_function([this, allocator, device] {
-        vkDestroyImageView(device, m_depth_image_view, nullptr);
-        vmaDestroyImage(allocator, m_depth_image.m_image, m_depth_image.m_allocation);
-    });
-}
+//void ViEngine::init_swapchain()
+//{
+//    const auto device = vi::GraphicsContext::get_device();
+//    const auto chosen_gpu = vi::GraphicsContext::get_chosen_gpu();
+//    const auto surface = vi::GraphicsContext::get_surface();
+//
+//    vkb::SwapchainBuilder swapchain_builder{ chosen_gpu, device, surface };
+//
+//    auto vkb_swapchain = swapchain_builder
+//            .use_default_format_selection()
+//                    //use vsync present mode
+//            .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+//            .set_desired_extent(m_window_extent.width, m_window_extent.height)
+//            .build()
+//            .value();
+//
+//    //store swapchain and its related images
+//    m_swapchain = vkb_swapchain.swapchain;
+//    m_swapchain_images = vkb_swapchain.get_images().value();
+//    m_swapchain_image_views = vkb_swapchain.get_image_views().value();
+//
+//    m_swachain_image_format = vkb_swapchain.image_format;
+//
+//    vi::DeletionQueue::push_function([this, device] {
+//        vkDestroySwapchainKHR(device, m_swapchain, nullptr);
+//    });
+//
+//    //depth image size will match the window
+//    VkExtent3D depth_image_extent = {
+//            m_window_extent.width,
+//            m_window_extent.height,
+//            1
+//    };
+//
+//    //hardcoding the depth format to 32 bit float
+//    m_depth_format = VK_FORMAT_D32_SFLOAT;
+//
+//    //the depth image will be a image with the format we selected and Depth Attachment usage flag
+//    auto dimg_info = vkinit::image_create_info(m_depth_format, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, depth_image_extent);
+//
+//    //for the depth image, we want to allocate it from gpu local memory
+//    VmaAllocationCreateInfo dimg_allocinfo{};
+//    dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+//    dimg_allocinfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+//
+//    //allocate and create the image
+//    auto allocator = vi::GraphicsContext::get_allocator();
+//    vmaCreateImage(allocator, &dimg_info, &dimg_allocinfo, &m_depth_image.m_image, &m_depth_image.m_allocation, nullptr);
+//
+//    //build a image-view for the depth image to use for rendering
+//    VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(m_depth_format, m_depth_image.m_image, VK_IMAGE_ASPECT_DEPTH_BIT);
+//
+//    VK_CHECK(vkCreateImageView(device, &dview_info, nullptr, &m_depth_image_view));
+//
+//    vi::DeletionQueue::push_function([this, allocator, device] {
+//        vkDestroyImageView(device, m_depth_image_view, nullptr);
+//        vmaDestroyImage(allocator, m_depth_image.m_image, m_depth_image.m_allocation);
+//    });
+//}
 
 void ViEngine::init_default_renderpass()
 {
@@ -227,8 +230,10 @@ void ViEngine::init_default_renderpass()
     //the attachment layout starts as "undefined", and transitions to "Present" so its possible to display it
     //we don't care about stencil, and don't use multisampling
 
+    const auto& swapchain_format = m_swapchain->get_swapchain_format();
+
     VkAttachmentDescription color_attachment{};
-    color_attachment.format = m_swachain_image_format;
+    color_attachment.format = swapchain_format;
     color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
     color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -241,10 +246,11 @@ void ViEngine::init_default_renderpass()
     color_attachment_ref.attachment = 0;
     color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+    const auto& depth_format = m_swapchain->get_depth_format();
+
     VkAttachmentDescription depth_attachment{};
-    // Depth attachment
     depth_attachment.flags = 0;
-    depth_attachment.format = m_depth_format;
+    depth_attachment.format = depth_format;
     depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
     depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -313,14 +319,16 @@ void ViEngine::init_framebuffers()
     //create the framebuffers for the swapchain images. This will connect the render-pass to the images for rendering
     auto fb_info = vkinit::framebuffer_create_info(m_render_pass, m_window_extent);
 
-    const auto swapchain_imagecount = m_swapchain_images.size();
-    m_framebuffers = std::vector<VkFramebuffer>(swapchain_imagecount);
+    const auto& swapchain_images = m_swapchain->get_swapchain_images();
+    const auto& swapchain_images_views = m_swapchain->get_swapchain_images_views();
+    const auto swapchain_image_count = swapchain_images.size();
+    m_framebuffers = std::vector<VkFramebuffer>(swapchain_image_count);
 
-    for (auto i = 0; i < swapchain_imagecount; i++) {
+    for (auto i = 0; i < swapchain_image_count; i++) {
 
         VkImageView attachments[2];
-        attachments[0] = m_swapchain_image_views[i];
-        attachments[1] = m_depth_image_view;
+        attachments[0] = swapchain_images_views[i];
+        attachments[1] = m_swapchain->get_depth_image_view();
 
         fb_info.pAttachments = attachments;
         fb_info.attachmentCount = 2;
@@ -329,7 +337,7 @@ void ViEngine::init_framebuffers()
 
         vi::DeletionQueue::push_function([=, this] {
             vkDestroyFramebuffer(device, m_framebuffers[i], nullptr);
-            vkDestroyImageView(device, m_swapchain_image_views[i], nullptr);
+            vkDestroyImageView(device, swapchain_images_views[i], nullptr);
         });
     }
 }
