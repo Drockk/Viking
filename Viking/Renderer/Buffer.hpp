@@ -12,6 +12,7 @@ namespace vi
         {
             UNIFORM_BUFFER,
             STORAGE_BUFFER,
+            STAGING_BUFFER,
             TRANSFER_SOURCE,
             INVALID
         };

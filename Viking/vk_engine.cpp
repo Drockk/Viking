@@ -424,7 +424,7 @@ void ViEngine::init_pipelines()
 
     //build the mesh pipeline
 
-    auto [bindings, attributes, flags] = Vertex::get_vertex_description();
+    auto [bindings, attributes, flags] = vi::Vertex::get_vertex_description();
 
     //connect the pipeline builder vertex input info to the one we get from Vertex
     pipeline_builder.m_vertex_input_info.pVertexAttributeDescriptions = attributes.data();
@@ -515,35 +515,33 @@ VkPipeline PipelineBuilder::build_pipeline(const VkDevice p_device, const VkRend
 
 void ViEngine::load_meshes()
 {
-    Mesh triMesh{};
-    //make the array 3 vertices long
-    triMesh.vertices.resize(3);
+    std::vector<vi::Vertex> triangle_vertices{};
+    triangle_vertices.resize(3);
 
-    //vertex positions
-    triMesh.vertices[0].position = { 1.f,1.f, 0.0f };
-    triMesh.vertices[1].position = { -1.f,1.f, 0.0f };
-    triMesh.vertices[2].position = { 0.f,-1.f, 0.0f };
+    triangle_vertices.at(0).m_position = { 1.f,1.f, 0.0f };
+    triangle_vertices.at(1).m_position = { -1.f,1.f, 0.0f };
+    triangle_vertices.at(2).m_position = { 0.f,-1.f, 0.0f };
 
-    //vertex colors, all green
-    triMesh.vertices[0].color = { 0.f,1.f, 0.0f }; //pure green
-    triMesh.vertices[1].color = { 0.f,1.f, 0.0f }; //pure green
-    triMesh.vertices[2].color = { 0.f,1.f, 0.0f }; //pure green
-    //we don't care about the vertex normals
+    triangle_vertices.at(0).m_color = { 0.f,1.f, 0.0f };
+    triangle_vertices.at(0).m_color = { 0.f,1.f, 0.0f };
+    triangle_vertices.at(0).m_color = { 0.f,1.f, 0.0f };
+
+    
 
     //load the monkey
-    Mesh monkeyMesh{};
-    monkeyMesh.load_from_obj(R"(C:\Users\batzi\source\repos\Viking\Assets\monkey_smooth.obj)");
+    //Mesh monkeyMesh{};
+    //monkeyMesh.load_from_obj(R"(C:\Users\batzi\source\repos\Viking\Assets\monkey_smooth.obj)");
 
-    Mesh lostEmpire{};
-    lostEmpire.load_from_obj(R"(C:\Users\batzi\source\repos\Viking\Assets\lost_empire.obj)");
+    //Mesh lostEmpire{};
+    //lostEmpire.load_from_obj(R"(C:\Users\batzi\source\repos\Viking\Assets\lost_empire.obj)");
 
-    upload_mesh(triMesh);
-    upload_mesh(monkeyMesh);
-    upload_mesh(lostEmpire);
+    //upload_mesh(triMesh);
+    //upload_mesh(monkeyMesh);
+    //upload_mesh(lostEmpire);
 
-    m_meshes["monkey"] = monkeyMesh;
-    m_meshes["triangle"] = triMesh;
-    m_meshes["empire"] = lostEmpire;
+    //m_meshes["monkey"] = monkeyMesh;
+    //m_meshes["triangle"] = triMesh;
+    //m_meshes["empire"] = lostEmpire;
 }
 
 
@@ -564,72 +562,72 @@ void ViEngine::load_images()
     m_loaded_textures["empire_diffuse"] = lostEmpire;
 }
 
-void ViEngine::upload_mesh(Mesh& p_mesh) const {
-    const auto bufferSize = p_mesh.vertices.size() * sizeof(Vertex);
-    //allocate vertex buffer
-    VkBufferCreateInfo stagingBufferInfo{};
-    stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    stagingBufferInfo.pNext = nullptr;
-    //this is the total size, in bytes, of the buffer we are allocating
-    stagingBufferInfo.size = bufferSize;
-    //this buffer is going to be used as a Vertex Buffer
-    stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
-
-    //let the VMA library know that this data should be writeable by CPU, but also readable by GPU
-    VmaAllocationCreateInfo vmaallocInfo{};
-    vmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-
-    AllocatedBuffer stagingBuffer;
-
-    //allocate the buffer
-    const auto allocator = vi::GraphicsContext::get_allocator();
-    VK_CHECK(vmaCreateBuffer(allocator, &stagingBufferInfo, &vmaallocInfo,
-                             &stagingBuffer.m_buffer,
-                             &stagingBuffer.m_allocation,
-                             nullptr));
-
-    //copy vertex data
-    void* data;
-    vmaMapMemory(allocator, stagingBuffer.m_allocation, &data);
-
-    memcpy(data, p_mesh.vertices.data(), p_mesh.vertices.size() * sizeof(Vertex));
-
-    vmaUnmapMemory(allocator, stagingBuffer.m_allocation);
-
-
-    //allocate vertex buffer
-    VkBufferCreateInfo vertexBufferInfo{};
-    vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    vertexBufferInfo.pNext = nullptr;
-    //this is the total size, in bytes, of the buffer we are allocating
-    vertexBufferInfo.size = bufferSize;
-    //this buffer is going to be used as a Vertex Buffer
-    vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-    //let the VMA library know that this data should be gpu native
-    vmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-
-    //allocate the buffer
-    VK_CHECK(vmaCreateBuffer(allocator, &vertexBufferInfo, &vmaallocInfo,
-                             &p_mesh.vertexBuffer.m_buffer,
-                             &p_mesh.vertexBuffer.m_allocation,
-                             nullptr));
-    //add the destruction of triangle mesh buffer to the deletion queue
-    vi::DeletionQueue::push_function([=, this] {
-        vmaDestroyBuffer(allocator, p_mesh.vertexBuffer.m_buffer, p_mesh.vertexBuffer.m_allocation);
-    });
-
-    immediate_submit([=](const VkCommandBuffer cmd) {
-        VkBufferCopy copy;
-        copy.dstOffset = 0;
-        copy.srcOffset = 0;
-        copy.size = bufferSize;
-        vkCmdCopyBuffer(cmd, stagingBuffer.m_buffer, p_mesh.vertexBuffer.m_buffer, 1, & copy);
-    });
-
-    vmaDestroyBuffer(allocator, stagingBuffer.m_buffer, stagingBuffer.m_allocation);
-}
+//void ViEngine::upload_mesh(Mesh& p_mesh) const {
+//    const auto bufferSize = p_mesh.vertices.size() * sizeof(vi::Vertex);
+//    //allocate vertex buffer
+//    VkBufferCreateInfo stagingBufferInfo{};
+//    stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+//    stagingBufferInfo.pNext = nullptr;
+//    //this is the total size, in bytes, of the buffer we are allocating
+//    stagingBufferInfo.size = bufferSize;
+//    //this buffer is going to be used as a Vertex Buffer
+//    stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+//
+//
+//    //let the VMA library know that this data should be writeable by CPU, but also readable by GPU
+//    VmaAllocationCreateInfo vmaallocInfo{};
+//    vmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+//
+//    AllocatedBuffer stagingBuffer;
+//
+//    //allocate the buffer
+//    const auto allocator = vi::GraphicsContext::get_allocator();
+//    VK_CHECK(vmaCreateBuffer(allocator, &stagingBufferInfo, &vmaallocInfo,
+//                             &stagingBuffer.m_buffer,
+//                             &stagingBuffer.m_allocation,
+//                             nullptr));
+//
+//    //copy vertex data
+//    void* data;
+//    vmaMapMemory(allocator, stagingBuffer.m_allocation, &data);
+//
+//    memcpy(data, p_mesh.vertices.data(), p_mesh.vertices.size() * sizeof(vi::Vertex));
+//
+//    vmaUnmapMemory(allocator, stagingBuffer.m_allocation);
+//
+//
+//    //allocate vertex buffer
+//    VkBufferCreateInfo vertexBufferInfo{};
+//    vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+//    vertexBufferInfo.pNext = nullptr;
+//    //this is the total size, in bytes, of the buffer we are allocating
+//    vertexBufferInfo.size = bufferSize;
+//    //this buffer is going to be used as a Vertex Buffer
+//    vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+//
+//    //let the VMA library know that this data should be gpu native
+//    vmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+//
+//    //allocate the buffer
+//    VK_CHECK(vmaCreateBuffer(allocator, &vertexBufferInfo, &vmaallocInfo,
+//                             &p_mesh.vertexBuffer.m_buffer,
+//                             &p_mesh.vertexBuffer.m_allocation,
+//                             nullptr));
+//    //add the destruction of triangle mesh buffer to the deletion queue
+//    vi::DeletionQueue::push_function([=, this] {
+//        vmaDestroyBuffer(allocator, p_mesh.vertexBuffer.m_buffer, p_mesh.vertexBuffer.m_allocation);
+//    });
+//
+//    immediate_submit([=](const VkCommandBuffer cmd) {
+//        VkBufferCopy copy;
+//        copy.dstOffset = 0;
+//        copy.srcOffset = 0;
+//        copy.size = bufferSize;
+//        vkCmdCopyBuffer(cmd, stagingBuffer.m_buffer, p_mesh.vertexBuffer.m_buffer, 1, & copy);
+//    });
+//
+//    vmaDestroyBuffer(allocator, stagingBuffer.m_buffer, stagingBuffer.m_allocation);
+//}
 
 
 Material* ViEngine::create_material(const VkPipeline p_pipeline, const VkPipelineLayout p_layout, const std::string& p_name)

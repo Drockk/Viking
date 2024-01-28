@@ -6,7 +6,7 @@
 
 #include "Core/Log.hpp"
 
-#define TINYOBJLOADER_IMPLEMENTATION
+//#define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 #include <iostream>
 

@@ -92,6 +92,8 @@ namespace vi
             return VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
         case Usage::STORAGE_BUFFER:
             return VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        case Usage::STAGING_BUFFER:
+            [[fallthrough]];
         case Usage::TRANSFER_SOURCE:
             return VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
         case Usage::INVALID:

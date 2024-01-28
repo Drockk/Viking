@@ -1,9 +1,10 @@
 #pragma once
 
 #include "vk_types.hpp"
-#include "vk_mesh.hpp"
+//#include "vk_mesh.hpp"
 #include "Core/Window.hpp"
 #include "Renderer/Buffer.hpp"
+#include "Renderer/Mesh.hpp"
 #include "Renderer/Swapchain.hpp"
 
 #include <glm/glm.hpp>
@@ -41,7 +42,7 @@ struct Material {
 };
 
 struct RenderObject {
-    Mesh* m_mesh;
+    //Mesh* m_mesh;
 
     Material* m_material;
 
@@ -83,19 +84,7 @@ public:
 
     VkRenderPass m_render_pass;
 
-    //VkSwapchainKHR m_swapchain;
-    //VkFormat m_swachain_image_format;
-
     std::vector<VkFramebuffer> m_framebuffers;
-    //std::vector<VkImage> m_swapchain_images;
-    //std::vector<VkImageView> m_swapchain_image_views;
-
-    //depth resources
-    //VkImageView m_depth_image_view;
-    //AllocatedImage m_depth_image;
-
-    //the format for the depth image
-    //VkFormat m_depth_format;
 
     VkDescriptorPool m_descriptor_pool;
 
@@ -125,7 +114,7 @@ public:
     std::vector<RenderObject> m_renderables;
 
     std::unordered_map<std::string, Material> m_materials;
-    std::unordered_map<std::string, Mesh> m_meshes;
+    //std::unordered_map<std::string, Mesh> m_meshes;
     //functions
 
     //create material and add it to the map
@@ -135,7 +124,7 @@ public:
     Material* get_material(const std::string& p_name);
 
     //returns nullptr if it cant be found
-    Mesh* get_mesh(const std::string& p_name);
+    //Mesh* get_mesh(const std::string& p_name);
 
     //our draw function
     void draw_objects(VkCommandBuffer p_cmd, const RenderObject* p_first, int p_count);
@@ -158,7 +147,7 @@ private:
     //loads a shader module from a spir-v file. Returns false if it errors
     void load_meshes();
 
-    void upload_mesh(Mesh& p_mesh) const;
+    //void upload_mesh(Mesh& p_mesh) const;
 
     std::unique_ptr<vi::Window> m_window{};
     std::unique_ptr<vi::Buffer> m_scene_parameter_buffer{};
