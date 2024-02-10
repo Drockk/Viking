@@ -1,7 +1,7 @@
 # CMakeList.txt : Top-level CMake project file, do global configuration
 # and include sub-projects here.
 #
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.28)
 
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
@@ -11,10 +11,8 @@ endif()
 
 project("Viking")
 
-
 include(cmake/CPM.cmake)
 
-#OLD
-# Include sub-projects.
-#Viking
-#add_subdirectory ("Old/Viking")
+add_subdirectory("Sandbox")
+
+add_subdirectory("Viking_Engine")
