@@ -13,6 +13,10 @@ class Application {
 public:
     explicit Application(const std::string_view& p_name);
 
+    void init();
+    void run();
+    void shutdown();
+
 private:
     std::string m_application_name{};
 };
