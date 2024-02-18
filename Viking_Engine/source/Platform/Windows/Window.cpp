@@ -5,6 +5,8 @@
 #include "Platform/Windows/Window.hpp"
 
 #include "Viking/core/Log.hpp"
+#include "Viking/event/ApplicationEvent.hpp"
+#include "Viking/event/DispatcherEvent.hpp"
 
 #include <stdexcept>
 
@@ -78,9 +80,10 @@ namespace Windows
 
         set_vsync(true);
 
-        glfwSetWindowCloseCallback(m_window, [](GLFWwindow* p_window)
+        glfwSetWindowCloseCallback(m_window, [](GLFWwindow*)
         {
-                VI_CORE_TRACE("Received window should close");
+            VI_CORE_TRACE("Received window should close");
+            vi::EventDispatcher::send_event(std::make_shared<vi::WindowCloseEvent>());
         });
     }
 }

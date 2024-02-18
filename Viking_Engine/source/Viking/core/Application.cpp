@@ -3,6 +3,7 @@
 //
 
 #include "Application.hpp"
+#include "Viking/event/DispatcherEvent.hpp"
 
 #include "Log.hpp"
 
@@ -15,14 +16,20 @@ void Application::init()
 {
     m_window = Window::create(WindowProps{m_application_name, {800, 600}});
     VI_CORE_INFO("{} initialized", m_application_name);
+
+    EventDispatcher::add_listener(EventType::WindowClose, [this](const EventPointer&)
+    {
+        m_running = false;
+    });
 }
 
 void Application::run()
 {
     while (m_running)
     {
+        EventDispatcher::dispatch();
         m_window->on_update();
-        //m_window->on_swap(); // TODO: Commented till Vulkan renderer will be implemented
+        //m_window->on_swap(); // TODO: Commented out till Vulkan renderer will be implemented
     }
 }
 
