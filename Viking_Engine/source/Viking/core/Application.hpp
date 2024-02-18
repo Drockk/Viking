@@ -5,8 +5,9 @@
 #ifndef APPLICATION_H
 #define APPLICATION_H
 
+#include "Window.hpp"
+
 #include <memory>
-#include <string_view>
 
 namespace vi {
 class Application {
@@ -19,6 +20,8 @@ public:
 
 private:
     std::string m_application_name{};
+    std::shared_ptr<Window> m_window;
+    bool m_running{ true };
 };
 }
 

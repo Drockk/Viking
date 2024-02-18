@@ -5,7 +5,7 @@
 #include <Viking.hpp>
 
 namespace snadbox {
-    class SandboxApplication: public vi::Application {
+    class SandboxApplication final: public vi::Application {
     public:
         SandboxApplication(): Application("Sandbox") {
 

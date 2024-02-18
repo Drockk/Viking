@@ -13,6 +13,6 @@ target_link_libraries(${PROJECT_NAME}
         Viking_Engine
 )
 
-if(CMAKE_VERSION VERSION_GREATER 3.28)
+# if(CMAKE_VERSION VERSION_GREATER 3.28)
     set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 23)
-endif()
+# endif()
