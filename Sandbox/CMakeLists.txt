@@ -4,6 +4,7 @@ add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME}
         PRIVATE
         source/SandboxApplication.cpp
+        source/SandboxLayer.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC source)

@@ -13,8 +13,12 @@ target_sources(${PROJECT_NAME}
         source/Viking/core/Application.cpp
         source/Viking/core/Application.hpp
         source/Viking/core/Entrypoint.hpp
+        source/Viking/core/Layer.hpp
+        source/Viking/core/LayerStack.cpp
+        source/Viking/core/LayerStack.hpp
         source/Viking/core/Log.cpp
         source/Viking/core/Log.hpp
+        source/Viking/core/TimeStep.hpp
         source/Viking/core/Window.cpp
         source/Viking/core/Window.hpp
         source/Viking/event/Event.hpp

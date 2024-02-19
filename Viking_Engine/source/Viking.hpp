@@ -7,5 +7,6 @@
 
 #include "Viking/core/Application.hpp"
 #include "Viking/core/Entrypoint.hpp"
+#include "Viking/core/Layer.hpp"
 
 #endif //VIKING_HPP

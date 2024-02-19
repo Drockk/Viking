@@ -5,6 +5,7 @@
 #ifndef APPLICATION_H
 #define APPLICATION_H
 
+#include "LayerStack.hpp"
 #include "Window.hpp"
 
 #include <memory>
@@ -18,10 +19,14 @@ public:
     void run();
     void shutdown();
 
+    void push_layer(Layer* p_layer);
+    void push_overlay(Layer* p_layer);
+
 private:
     std::string m_application_name{};
     std::shared_ptr<Window> m_window;
     bool m_running{ true };
+    LayerStack m_layer_stack;
 };
 }
 
