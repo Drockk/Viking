@@ -8,7 +8,7 @@
 #include "Application.hpp"
 #include "Log.hpp"
 
-inline int main() {
+int main() {
     vi::Log::init();
 
     try {

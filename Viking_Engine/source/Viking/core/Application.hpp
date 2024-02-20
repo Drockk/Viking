@@ -5,8 +5,9 @@
 #ifndef APPLICATION_H
 #define APPLICATION_H
 
-#include "LayerStack.hpp"
-#include "Window.hpp"
+#include "Viking/core/LayerStack.hpp"
+#include "Viking/core/Timestep.hpp"
+#include "Viking/core/Window.hpp"
 
 #include <memory>
 
@@ -27,6 +28,7 @@ private:
     std::shared_ptr<Window> m_window;
     bool m_running{ true };
     LayerStack m_layer_stack;
+    TimeStep m_last_frame_time;
 };
 }
 

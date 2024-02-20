@@ -30,6 +30,7 @@ public:
 
     virtual void set_vsync(bool p_enabled) = 0;
     [[nodiscard]] virtual bool is_vsync() const = 0;
+    [[nodiscard]] virtual float get_time() const = 0;
 
     [[nodiscard]] static std::shared_ptr<Window> create(const WindowProps& p_props = WindowProps());
 };

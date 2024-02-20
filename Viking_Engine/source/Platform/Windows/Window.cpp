@@ -57,6 +57,11 @@ namespace Windows
         return vsync;
     }
 
+    float Window::get_time() const
+    {
+        return static_cast<float>(glfwGetTime());
+    }
+
     void Window::create_window()
     {
         if (!glfwInit())

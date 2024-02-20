@@ -9,6 +9,9 @@ namespace sandbox
     {
     public:
         SandboxLayer(): Layer("Sandbox") {}
+
+        void on_attach() override;
+        void on_update(const vi::TimeStep& p_time_step) override;
     };
 }
 

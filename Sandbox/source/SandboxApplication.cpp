@@ -3,6 +3,7 @@
 //
 #include "SandboxLayer.hpp"
 #include <Viking.hpp>
+#include <Viking/core/Entrypoint.hpp>
 
 namespace sandbox {
     class SandboxApplication final: public vi::Application {

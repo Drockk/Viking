@@ -25,6 +25,8 @@ target_sources(${PROJECT_NAME}
         source/Viking/event/ApplicationEvent.hpp
         source/Viking/event/DispatcherEvent.hpp
         source/Viking/event/DispatcherEvent.cpp
+        source/Viking/renderer/Renderer.cpp
+        source/Viking/renderer/Renderer.hpp
         source/Viking.hpp
 )
 

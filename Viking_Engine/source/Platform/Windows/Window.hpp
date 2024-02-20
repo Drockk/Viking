@@ -21,6 +21,7 @@ public:
     [[nodiscard]] std::pair<int32_t, int32_t> get_size() const override;
     void set_vsync(bool p_enabled) override;
     [[nodiscard]] bool is_vsync() const override;
+    [[nodiscard]] float get_time() const override;
 
 private:
     void create_window();
