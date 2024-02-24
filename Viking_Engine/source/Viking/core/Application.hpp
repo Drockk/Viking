@@ -8,6 +8,7 @@
 #include "Viking/core/LayerStack.hpp"
 #include "Viking/core/Timestep.hpp"
 #include "Viking/core/Window.hpp"
+#include "Viking/renderer/Renderer.hpp"
 
 #include <memory>
 
@@ -29,6 +30,7 @@ private:
     bool m_running{ true };
     LayerStack m_layer_stack;
     TimeStep m_last_frame_time;
+    Renderer m_renderer;
 };
 }
 

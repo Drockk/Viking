@@ -6,8 +6,10 @@ namespace vi
     class Renderer
     {
     public:
-        static void init();
-        static void shutdown();
+        void init();
+        void shutdown();
+
+    private:
     };
 }
 
