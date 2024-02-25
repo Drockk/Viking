@@ -10,7 +10,7 @@
 
 #include <stdexcept>
 
-namespace Windows
+namespace windows
 {
     Window::Window(vi::WindowProps p_props) : m_window_props{ std::move(p_props) }
     {
@@ -60,6 +60,16 @@ namespace Windows
     float Window::get_time() const
     {
         return static_cast<float>(glfwGetTime());
+    }
+
+    VkSurfaceKHR Window::create_surface(const VkInstance p_instance) const
+    {
+        VkSurfaceKHR surface;
+        if (glfwCreateWindowSurface(p_instance, m_window, nullptr, &surface)) {
+            throw std::runtime_error("Cannot create GLFW window surface");
+        }
+
+        return surface;
     }
 
     void Window::create_window()

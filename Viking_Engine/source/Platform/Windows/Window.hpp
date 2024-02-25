@@ -7,10 +7,11 @@
 
 #include "Viking/core/Window.hpp"
 
+#include <vulkan/vulkan.hpp>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-namespace Windows {
+namespace windows {
 class Window: public vi::Window {
 public:
     Window(vi::WindowProps p_props);
@@ -22,6 +23,8 @@ public:
     void set_vsync(bool p_enabled) override;
     [[nodiscard]] bool is_vsync() const override;
     [[nodiscard]] float get_time() const override;
+
+    [[nodiscard]] VkSurfaceKHR create_surface(VkInstance p_instance) const;
 
 private:
     void create_window();

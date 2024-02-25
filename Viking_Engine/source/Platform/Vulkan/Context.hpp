@@ -1,8 +1,10 @@
 #ifndef VULKAN_CONTEXT_HPP
 #define VULKAN_CONTEXT_HPP
-#include "Viking/renderer/Context.hpp"
+#include "Platform/Vulkan/Swapchain.hpp"
 
 #include "Viking/core/Window.hpp"
+#include "Viking/renderer/Context.hpp"
+
 #include <vulkan/vulkan.hpp>
 
 namespace vulkan
@@ -10,13 +12,17 @@ namespace vulkan
     class Context final: public vi::Context
     {
     public:
-        void init(std::string_view p_app_name, const std::unique_ptr<vi::Window>& p_window) override;
+        void init(std::string_view p_app_name, const std::shared_ptr<vi::Window>& p_window) override;
         void cleanup() override;
 
     private:
-        VkDebugUtilsMessengerEXT  m_debug_messenger{};
-        VkInstance                m_instance{};
-        VkSurfaceKHR              m_surface{};
+        VkPhysicalDevice            m_chosen_gpu{};
+        VkDebugUtilsMessengerEXT    m_debug_messenger{};
+        VkDevice                    m_device{};
+        VkInstance                  m_instance{};
+        VkSurfaceKHR                m_surface{};
+
+        Swapchain m_swapchain{};
     };
 }
 

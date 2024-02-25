@@ -7,7 +7,7 @@
 
 namespace vi {
     std::shared_ptr<Window> Window::create(const WindowProps &p_props) {
-        return std::make_shared<Windows::Window>(p_props);
+        return std::make_shared<windows::Window>(p_props);
     }
 
 }

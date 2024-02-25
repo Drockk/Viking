@@ -23,7 +23,7 @@ void Application::init()
         m_running = false;
     });
 
-    m_renderer.init();
+    m_renderer.init(m_application_name, m_window);
 }
 
 void Application::run()

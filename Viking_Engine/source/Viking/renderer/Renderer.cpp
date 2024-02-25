@@ -7,14 +7,15 @@ namespace
     class InternalRenderer
     {
     public:
-        static void init()
+        static void init(const std::string_view p_app_name, const std::shared_ptr<vi::Window>& p_window)
         {
             m_context = vi::Context::create();
+            m_context->init(p_app_name, p_window);
         }
 
         static void shutdown()
         {
-            
+            m_context->cleanup();
         }
 
     private:
@@ -24,9 +25,9 @@ namespace
 
 namespace vi
 {
-    void Renderer::init()
+    void Renderer::init(const std::string_view p_app_name, const std::shared_ptr<Window>& p_window)
     {
-        InternalRenderer::init();
+        InternalRenderer::init(p_app_name, p_window);
     }
 
     void Renderer::shutdown()
