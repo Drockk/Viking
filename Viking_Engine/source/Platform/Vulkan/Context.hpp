@@ -15,12 +15,18 @@ namespace vulkan
         void init(std::string_view p_app_name, const std::shared_ptr<vi::Window>& p_window) override;
         void cleanup() override;
 
+        [[nodiscard]] VkDevice get_device() const { return m_device; }
+        [[nodiscard]] uint32_t get_graphics_queue_family() const { return m_graphics_queue_family; }
+
     private:
         VkPhysicalDevice            m_chosen_gpu{};
         VkDebugUtilsMessengerEXT    m_debug_messenger{};
         VkDevice                    m_device{};
         VkInstance                  m_instance{};
         VkSurfaceKHR                m_surface{};
+
+        VkQueue m_graphics_queue{};
+        uint32_t m_graphics_queue_family{};
 
         Swapchain m_swapchain{};
     };

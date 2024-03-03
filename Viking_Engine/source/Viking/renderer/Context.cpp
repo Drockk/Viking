@@ -4,8 +4,8 @@
 
 namespace vi
 {
-    std::unique_ptr<Context> Context::create()
+    std::shared_ptr<Context> Context::create()
     {
-        return std::make_unique<vulkan::Context>();
+        return std::make_shared<vulkan::Context>();
     }
 }

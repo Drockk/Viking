@@ -93,7 +93,7 @@ namespace windows
             throw std::runtime_error("Cannot create GLFW window");
         }
 
-        set_vsync(true);
+        //set_vsync(true);
 
         glfwSetWindowCloseCallback(m_window, [](GLFWwindow*)
         {

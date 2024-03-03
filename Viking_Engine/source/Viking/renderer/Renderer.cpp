@@ -1,3 +1,4 @@
+#include "Platform/Vulkan/Renderer.hpp"
 #include "Viking/renderer/Renderer.hpp"
 
 #include "Viking/renderer/Context.hpp"
@@ -11,15 +12,18 @@ namespace
         {
             m_context = vi::Context::create();
             m_context->init(p_app_name, p_window);
+            m_renderer.init(m_context);
         }
 
         static void shutdown()
         {
+            m_renderer.cleanup();
             m_context->cleanup();
         }
 
     private:
-        inline static std::unique_ptr<vi::Context> m_context{};
+        inline static std::shared_ptr<vi::Context> m_context{};
+        inline static vulkan::Renderer m_renderer;
     };
 }
 

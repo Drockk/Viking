@@ -17,6 +17,8 @@ target_sources(${PROJECT_NAME}
         source/Platform/Windows/Window.hpp
         source/Platform/Vulkan/Context.cpp
         source/Platform/Vulkan/Context.hpp
+        source/Platform/Vulkan/Renderer.cpp
+        source/Platform/Vulkan/Renderer.hpp
         source/Platform/Vulkan/Swapchain.cpp
         source/Platform/Vulkan/Swapchain.hpp
         source/Viking/core/Application.cpp

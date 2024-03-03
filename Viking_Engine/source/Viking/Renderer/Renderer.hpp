@@ -13,8 +13,6 @@ namespace vi
     public:
         void init(std::string_view p_app_name, const std::shared_ptr<Window>& p_window);
         void shutdown();
-
-    private:
     };
 }
 

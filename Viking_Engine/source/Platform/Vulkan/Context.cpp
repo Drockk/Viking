@@ -86,6 +86,9 @@ namespace vulkan
         m_chosen_gpu = vkb_device.physical_device;
 
         m_swapchain.init(m_chosen_gpu, m_device, m_surface, p_window->get_size());
+
+        m_graphics_queue = vkb_device.get_queue(vkb::QueueType::graphics).value();
+        m_graphics_queue_family = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
     }
 
     void Context::cleanup()

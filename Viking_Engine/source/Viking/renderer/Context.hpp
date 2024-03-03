@@ -15,7 +15,7 @@ namespace vi
         virtual void init(std::string_view p_app_name, const std::shared_ptr<Window>& p_window) = 0;
         virtual void cleanup() = 0;
 
-        static std::unique_ptr<Context> create();
+        static std::shared_ptr<Context> create();
     };
 }
 
