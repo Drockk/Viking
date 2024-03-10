@@ -21,6 +21,9 @@ namespace vulkan
         void init(VkPhysicalDevice p_physical_device, VkDevice p_device, VkSurfaceKHR p_surface, const std::pair<uint32_t, uint32_t>& p_resolution);
         void cleanup();
 
+        [[nodiscard]] VkSwapchainKHR get_swapchain() const { return m_swapchain; }
+        [[nodiscard]] std::vector<VkImage>& get_images() { return m_swapchain_images; }
+
     private:
         VkDevice                    m_device{};
         VkSwapchainKHR              m_swapchain{};

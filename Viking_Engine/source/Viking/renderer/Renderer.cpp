@@ -21,6 +21,11 @@ namespace
             m_context->cleanup();
         }
 
+        static void draw()
+        {
+            m_renderer.draw();
+        }
+
     private:
         inline static std::shared_ptr<vi::Context> m_context{};
         inline static vulkan::Renderer m_renderer;
@@ -32,6 +37,11 @@ namespace vi
     void Renderer::init(const std::string_view p_app_name, const std::shared_ptr<Window>& p_window)
     {
         InternalRenderer::init(p_app_name, p_window);
+    }
+
+    void Renderer::draw()
+    {
+        InternalRenderer::draw();
     }
 
     void Renderer::shutdown()

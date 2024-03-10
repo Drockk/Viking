@@ -35,7 +35,6 @@ void Application::run()
         const auto now = m_window->get_time();
         TimeStep time_step = now - m_last_frame_time;
         m_last_frame_time = now;
-        //TODO: Get Time step
 
         std::ranges::for_each(m_layer_stack, [time_step](Layer* p_layer)
         {
@@ -43,6 +42,8 @@ void Application::run()
         });
 
         //TODO: update on imgui layer
+
+        m_renderer.draw();
 
         m_window->on_update();
         //m_window->on_swap(); // TODO: Commented out till Vulkan renderer will be implemented

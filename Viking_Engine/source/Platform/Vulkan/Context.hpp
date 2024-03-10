@@ -17,6 +17,8 @@ namespace vulkan
 
         [[nodiscard]] VkDevice get_device() const { return m_device; }
         [[nodiscard]] uint32_t get_graphics_queue_family() const { return m_graphics_queue_family; }
+        [[nodiscard]] VkQueue get_graphics_queue() const { return m_graphics_queue; }
+        [[nodiscard]] Swapchain& get_swapchain() { return m_swapchain; }
 
     private:
         VkPhysicalDevice            m_chosen_gpu{};

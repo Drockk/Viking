@@ -31,7 +31,7 @@ namespace vulkan
         vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
         std::ranges::for_each(m_swapchain_image_views, [this](const VkImageView p_image_view)
         {
-                vkDestroyImageView(m_device, p_image_view, nullptr);
+            vkDestroyImageView(m_device, p_image_view, nullptr);
         });
     }
 }
