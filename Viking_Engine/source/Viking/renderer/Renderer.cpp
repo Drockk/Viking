@@ -21,9 +21,14 @@ namespace
             m_context->cleanup();
         }
 
-        static void draw()
+        static void begin_frame()
         {
-            m_renderer.draw();
+            m_renderer.begin_frame();
+        }
+
+        static void end_frame()
+        {
+            m_renderer.end_frame();
         }
 
     private:
@@ -39,13 +44,18 @@ namespace vi
         InternalRenderer::init(p_app_name, p_window);
     }
 
-    void Renderer::draw()
-    {
-        InternalRenderer::draw();
-    }
-
     void Renderer::shutdown()
     {
         InternalRenderer::shutdown();
+    }
+
+    void Renderer::begin_frame()
+    {
+        InternalRenderer::begin_frame();
+    }
+
+    void Renderer::end_frame()
+    {
+        InternalRenderer::end_frame();
     }
 }
