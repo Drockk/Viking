@@ -6,6 +6,8 @@
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vk_enum_string_helper.h>
 
+#include <Viking/core/DeletionQueue.hpp>
+
 namespace utils
 {
     constexpr uint64_t ONE_SECOND_IN_NS{ 1000000000 };
@@ -153,6 +155,7 @@ namespace
         VkSemaphore m_swapchain_semaphore{};
         VkSemaphore m_render_semaphore{};
         VkFence m_render_fence{};
+        vi::DeletionQueue m_deletion_queue{};
     };
 
     constexpr auto FRAME_OVERLAP{ 2 };
@@ -173,6 +176,7 @@ namespace
 
         static void cleanup()
         {
+            vkDeviceWaitIdle(m_device);
             std::ranges::for_each(m_frames, [](const FrameData& p_frame)
             {
                 vkDestroyCommandPool(m_device, p_frame.m_command_pool, nullptr);
@@ -191,6 +195,8 @@ namespace
             {
                 throw std::runtime_error(std::format("Something wrong occured when waiting for finish rendering last frame: {}", string_VkResult(result)));
             }
+
+            get_current_frame().m_deletion_queue.flush();
 
             if (const auto result = vkResetFences(m_device, 1, &get_current_frame().m_render_fence); result != VK_SUCCESS)
             {

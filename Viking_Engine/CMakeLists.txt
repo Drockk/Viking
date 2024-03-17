@@ -10,6 +10,7 @@ CPMAddPackage("gh:charles-lunarg/vk-bootstrap#v1.3.278")
 CPMAddPackage("gh:gabime/spdlog@1.13.0")
 CPMAddPackage("gh:glfw/glfw#3.3.9")
 CPMAddPackage("gh:wqking/eventpp@0.1.3")
+CPMAddPackage("gh:GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator@3.0.1")
 
 target_sources(${PROJECT_NAME}
     PRIVATE
@@ -56,6 +57,7 @@ target_link_libraries(${PROJECT_NAME}
         spdlog
         vk-bootstrap::vk-bootstrap
         Vulkan::Vulkan
+        VulkanMemoryAllocator
 )
 
 # if(CMAKE_VERSION VERSION_GREATER 3.28)

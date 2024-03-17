@@ -2,10 +2,13 @@
 #define VULKAN_CONTEXT_HPP
 #include "Platform/Vulkan/Swapchain.hpp"
 
+#include "Viking/core/DeletionQueue.hpp"
 #include "Viking/core/Window.hpp"
 #include "Viking/renderer/Context.hpp"
 
 #include <vulkan/vulkan.hpp>
+
+#include <vk_mem_alloc.h>
 
 namespace vulkan
 {
@@ -31,6 +34,10 @@ namespace vulkan
         uint32_t m_graphics_queue_family{};
 
         Swapchain m_swapchain{};
+
+        vi::DeletionQueue m_deletion_queue{};
+
+        VmaAllocator m_allocator{};
     };
 }
 

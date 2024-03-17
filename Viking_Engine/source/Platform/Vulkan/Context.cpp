@@ -5,13 +5,17 @@
 
 #include <VkBootstrap.h>
 
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
+
+
 namespace
 {
-//#ifdef DEBUG
+#ifndef NDEBUG
     constexpr bool USE_VALIDATION_LAYERS{ true };
-//#else
-//    constexpr bool USE_VALIDATION_LAYERS{ false };
-//#endif
+#else
+    constexpr bool USE_VALIDATION_LAYERS{ false };
+#endif
 }
 
 namespace vulkan
@@ -89,10 +93,24 @@ namespace vulkan
 
         m_graphics_queue = vkb_device.get_queue(vkb::QueueType::graphics).value();
         m_graphics_queue_family = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
+
+        VmaAllocatorCreateInfo allocator_info{};
+        allocator_info.physicalDevice = m_chosen_gpu;
+        allocator_info.device = m_device;
+        allocator_info.instance = m_instance;
+        allocator_info.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+        vmaCreateAllocator(&allocator_info, &m_allocator);
+
+        m_deletion_queue.push_function([&]() {
+            vmaDestroyAllocator(m_allocator);
+        });
     }
 
     void Context::cleanup()
     {
+        vkDeviceWaitIdle(m_device);
+        m_deletion_queue.flush();
+
         m_swapchain.cleanup();
 
         vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
