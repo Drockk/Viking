@@ -14,6 +14,7 @@ namespace windows
 {
     Window::Window(vi::WindowProps p_props) : m_window_props{ std::move(p_props) }
     {
+        init();
         create_window();
     }
 
@@ -46,17 +47,6 @@ namespace windows
         return m_window_props.Size;
     }
 
-    void Window::set_vsync(const bool p_enabled)
-    {
-        vsync = p_enabled;
-        glfwSwapInterval(p_enabled);
-    }
-
-    bool Window::is_vsync() const
-    {
-        return vsync;
-    }
-
     float Window::get_time() const
     {
         return static_cast<float>(glfwGetTime());
@@ -72,8 +62,9 @@ namespace windows
         return surface;
     }
 
-    void Window::create_window()
+    void Window::init()
     {
+        glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WIN32);
         if (!glfwInit())
         {
             throw std::runtime_error("Cannot initialize GLFW");
@@ -81,19 +72,22 @@ namespace windows
 
         glfwSetErrorCallback([](int p_error, const char* p_description)
         {
-            VI_CORE_ERROR("[GLFW] {}:{}", p_error, p_description);
+                VI_CORE_ERROR("[GLFW] {}:{}", p_error, p_description);
         });
 
+        VI_CORE_TRACE(glfwGetVersionString());
+    }
+
+    void Window::create_window()
+    {
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        const auto [width, height] = m_window_props.Size;
+        const auto& [width, height] = m_window_props.Size;
         m_window = glfwCreateWindow(width, height, m_window_props.Title.c_str(), nullptr, nullptr);
         if (!m_window)
         {
             glfwTerminate();
             throw std::runtime_error("Cannot create GLFW window");
         }
-
-        //set_vsync(true);
 
         glfwSetWindowCloseCallback(m_window, [](GLFWwindow*)
         {

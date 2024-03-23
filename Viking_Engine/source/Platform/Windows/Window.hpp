@@ -20,13 +20,12 @@ public:
     void on_update() override;
     void on_swap() override;
     [[nodiscard]] std::pair<int32_t, int32_t> get_size() const override;
-    void set_vsync(bool p_enabled) override;
-    [[nodiscard]] bool is_vsync() const override;
     [[nodiscard]] float get_time() const override;
 
     [[nodiscard]] VkSurfaceKHR create_surface(VkInstance p_instance) const;
 
 private:
+    static void init();
     void create_window();
 
     vi::WindowProps m_window_props{};
