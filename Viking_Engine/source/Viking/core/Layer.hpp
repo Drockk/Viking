@@ -15,9 +15,9 @@ namespace vi
 
         virtual void on_attach() {}
         virtual void on_detach() {}
-        virtual void on_update(const TimeStep& p_time_step) {}
+        virtual void on_update(const TimeStep&) {}
         virtual void on_imgui_render() {}
-        virtual void on_event(EventPointer& p_event) {}
+        virtual void on_event(EventPointer&) {}
 
         [[nodiscard]] const std::string& get_name() const { return m_debug_name; }
 

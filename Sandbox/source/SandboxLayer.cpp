@@ -7,7 +7,7 @@ namespace sandbox
         VI_INFO("Init Sandbox");
     }
 
-    void SandboxLayer::on_update(const vi::TimeStep& p_time_step)
+    void SandboxLayer::on_update(const vi::TimeStep&)
     {
     }
 }

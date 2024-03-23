@@ -6,9 +6,9 @@ endif()
 
 add_library(${PROJECT_NAME})
 
-CPMAddPackage("gh:charles-lunarg/vk-bootstrap#v1.3.278")
+CPMAddPackage("gh:charles-lunarg/vk-bootstrap#v1.3.280")
 CPMAddPackage("gh:gabime/spdlog@1.13.0")
-CPMAddPackage("gh:glfw/glfw#3.3.9")
+CPMAddPackage("gh:glfw/glfw#3.4")
 CPMAddPackage("gh:wqking/eventpp@0.1.3")
 CPMAddPackage("gh:GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator@3.0.1")
 
@@ -47,6 +47,11 @@ target_sources(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME}
     PUBLIC
         source
+        ${EVENTPP_INCLUDE_DIR}
+)
+
+target_include_directories(${PROJECT_NAME} SYSTEM
+    PUBLIC
         ${EVENTPP_INCLUDE_DIR}
 )
 
