@@ -4,7 +4,7 @@
 
 namespace vulkan
 {
-    void Swapchain::init(const VkPhysicalDevice p_physical_device, const VkDevice p_device, const VkSurfaceKHR p_surface, const std::pair<uint32_t, uint32_t>& p_resolution)
+    void Swapchain::init(const VkPhysicalDevice p_physical_device, const VkDevice p_device, const VkSurfaceKHR p_surface, const std::pair<uint32_t, uint32_t>& p_resolution, VmaAllocator p_allocator, vi::DeletionQueue& p_deletion_queue)
     {
         vkb::SwapchainBuilder swapchain_builder{ p_physical_device, p_device, p_surface };
         m_swapchain_image_format = VK_FORMAT_R8G8B8A8_UNORM;
@@ -24,6 +24,14 @@ namespace vulkan
         m_swapchain_image_views = vkb_swapchain.get_image_views().value();
 
         m_device = p_device;
+
+        VkImageUsageFlags drawImageUsages{};
+        drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
+        drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+        m_draw_image = std::make_shared<Image>(VkExtent3D{width, height, 1}, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, p_allocator, p_device, p_deletion_queue);
     }
 
     void Swapchain::cleanup()

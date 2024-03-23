@@ -89,11 +89,6 @@ namespace vulkan
         m_device = vkb_device.device;
         m_chosen_gpu = vkb_device.physical_device;
 
-        m_swapchain.init(m_chosen_gpu, m_device, m_surface, p_window->get_size());
-
-        m_graphics_queue = vkb_device.get_queue(vkb::QueueType::graphics).value();
-        m_graphics_queue_family = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
-
         VmaAllocatorCreateInfo allocator_info{};
         allocator_info.physicalDevice = m_chosen_gpu;
         allocator_info.device = m_device;
@@ -104,6 +99,11 @@ namespace vulkan
         m_deletion_queue.push_function([&]() {
             vmaDestroyAllocator(m_allocator);
         });
+
+        m_swapchain.init(m_chosen_gpu, m_device, m_surface, p_window->get_size(), m_allocator, m_deletion_queue);
+
+        m_graphics_queue = vkb_device.get_queue(vkb::QueueType::graphics).value();
+        m_graphics_queue_family = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
     }
 
     void Context::cleanup()
