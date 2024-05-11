@@ -168,8 +168,10 @@ namespace
             const auto context = std::dynamic_pointer_cast<vulkan::Context>(p_context);
             m_device = context->get_device();
             m_swapchain = context->get_swapchain().get_swapchain();
+            m_swapchain_extent = context->get_swapchain().get_extent();
             m_swapchain_images = context->get_swapchain().get_images();
             m_graphics_queue = context->get_graphics_queue();
+            m_draw_image = context->get_swapchain().get_draw_image();
             init_commands(context);
             init_sync_structures();
         }
@@ -229,9 +231,25 @@ namespace
             }
 
             //make the swapchain image into writeable mode before rendering
-            utils::transition_image(cmd, m_swapchain_images[m_swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+            //utils::transition_image(cmd, m_swapchain_images[m_swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
+            //draw_background();
+
+            const auto allocated_image = m_draw_image->get_allocated_image();
+            VkExtent2D draw_extent{allocated_image.image_extent.width , allocated_image.image_extent.height };
+
+            // transition our main draw image into general layout, so we can write into it,
+            // we will overwrite it all, so we don't care about what was the older layout
+            utils::transition_image(cmd, allocated_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
             draw_background();
+
+            //transition the draw image and the swapchain image into their correct transfer layouts
+            utils::transition_image(cmd, allocated_image.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            utils::transition_image(cmd, m_swapchain_images[m_swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+            // execute a copy from the draw image into the swapchain
+            vulkan::copy_image_to_image(cmd, allocated_image.image, m_swapchain_images[m_swapchain_image_index], draw_extent, m_swapchain_extent);
         }
 
         static void end_frame()
@@ -240,7 +258,7 @@ namespace
             const auto cmd = get_current_frame().m_main_command_buffer;
 
             //make the swapchain image into presentable mode
-            utils::transition_image(cmd, m_swapchain_images[m_swapchain_image_index], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            utils::transition_image(cmd, m_swapchain_images[m_swapchain_image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
             if (const auto result = vkEndCommandBuffer(cmd); result != VK_SUCCESS)
             {
@@ -341,13 +359,15 @@ namespace
             const auto flash = abs(sin(static_cast<float>(m_frame_number) / 120.f));
             const VkClearColorValue clear_value = { { 0.0f, 0.0f, flash, 1.0f } };
             const auto clear_range = utils::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
+
             //clear image
             const auto cmd = get_current_frame().m_main_command_buffer;
-            vkCmdClearColorImage(cmd, m_swapchain_images[m_swapchain_image_index], VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &clear_range);
+            vkCmdClearColorImage(cmd, m_draw_image->get_image(), VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &clear_range);
         }
 
         inline static VkDevice m_device{};
         inline static VkSwapchainKHR m_swapchain{};
+        inline static VkExtent2D m_swapchain_extent{};
         inline static std::vector<VkImage> m_swapchain_images;
         inline static VkQueue m_graphics_queue{};
 
@@ -355,6 +375,7 @@ namespace
         inline static std::array<FrameData, FRAME_OVERLAP> m_frames;
 
         inline static uint32_t m_swapchain_image_index{};
+        inline static std::shared_ptr<vulkan::Image> m_draw_image{};
     };
 }
 

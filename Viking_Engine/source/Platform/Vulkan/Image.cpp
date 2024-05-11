@@ -76,4 +76,39 @@ namespace vulkan
             vmaDestroyImage(m_allocator, m_image.image, m_image.allocation);
         });
     }
+
+    void copy_image_to_image(const VkCommandBuffer p_command, const VkImage p_source, const VkImage p_destination, const VkExtent2D p_source_size, const VkExtent2D
+                             p_destination_size)
+    {
+        VkImageBlit2 blit_region{ .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2, .pNext = nullptr };
+
+        blit_region.srcOffsets[1].x = static_cast<int32_t>(p_source_size.width);
+        blit_region.srcOffsets[1].y = static_cast<int32_t>(p_source_size.height);
+        blit_region.srcOffsets[1].z = 1;
+
+        blit_region.dstOffsets[1].x = static_cast<int32_t>(p_destination_size.width);
+        blit_region.dstOffsets[1].y = static_cast<int32_t>(p_destination_size.height);
+        blit_region.dstOffsets[1].z = 1;
+
+        blit_region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit_region.srcSubresource.baseArrayLayer = 0;
+        blit_region.srcSubresource.layerCount = 1;
+        blit_region.srcSubresource.mipLevel = 0;
+
+        blit_region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit_region.dstSubresource.baseArrayLayer = 0;
+        blit_region.dstSubresource.layerCount = 1;
+        blit_region.dstSubresource.mipLevel = 0;
+
+        VkBlitImageInfo2 blit_info{ .sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2, .pNext = nullptr };
+        blit_info.dstImage = p_destination;
+        blit_info.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        blit_info.srcImage = p_source;
+        blit_info.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        blit_info.filter = VK_FILTER_LINEAR;
+        blit_info.regionCount = 1;
+        blit_info.pRegions = &blit_region;
+
+        vkCmdBlitImage2(p_command, &blit_info);
+    }
 }

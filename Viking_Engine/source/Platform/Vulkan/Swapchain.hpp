@@ -27,7 +27,13 @@ namespace vulkan
         [[nodiscard]] VkSwapchainKHR get_swapchain() const { return m_swapchain; }
         [[nodiscard]] std::vector<VkImage>& get_images() { return m_swapchain_images; }
 
+        [[nodiscard]] std::shared_ptr<Image> get_draw_image() { return m_draw_image; }
+
+        [[nodiscard]] VkExtent2D get_extent() { return m_swapchain_extent; }
+
     private:
+        void create_draw_image(const std::pair<uint32_t, uint32_t>& p_resolution, VmaAllocator p_allocator, vi::DeletionQueue& p_deletion_queue);
+
         VkDevice                    m_device{};
         VkSwapchainKHR              m_swapchain{};
         VkFormat                    m_swapchain_image_format{};

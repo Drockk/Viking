@@ -25,13 +25,7 @@ namespace vulkan
 
         m_device = p_device;
 
-        VkImageUsageFlags drawImageUsages{};
-        drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
-        drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-        m_draw_image = std::make_shared<Image>(VkExtent3D{width, height, 1}, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages, p_allocator, p_device, p_deletion_queue);
+        create_draw_image(p_resolution, p_allocator, p_deletion_queue);
     }
 
     void Swapchain::cleanup()
@@ -41,5 +35,24 @@ namespace vulkan
         {
             vkDestroyImageView(m_device, p_image_view, nullptr);
         });
+    }
+
+    void Swapchain::create_draw_image(const std::pair<uint32_t, uint32_t>& p_resolution, VmaAllocator p_allocator, vi::DeletionQueue& p_deletion_queue)
+    {
+        //draw image size will match the window
+        const auto [width, height] = p_resolution;
+        VkExtent3D draw_image_extent = {
+            width,
+            height,
+            1
+        };
+
+        VkImageUsageFlags draw_image_usages{};
+        draw_image_usages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        draw_image_usages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        draw_image_usages |= VK_IMAGE_USAGE_STORAGE_BIT;
+        draw_image_usages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+        m_draw_image = std::make_shared<Image>(draw_image_extent, VK_FORMAT_R16G16B16A16_SFLOAT, draw_image_usages, p_allocator, m_device, p_deletion_queue);
     }
 }
